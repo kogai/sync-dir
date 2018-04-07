@@ -1,8 +1,7 @@
 use std::fs::read_dir;
 
 fn main() {
-    let my_dir = read_dir("/home/kogai/Downloads");
-    // let my_dir = read_dir("/run/media/kogai/AGPTEK-A01T");
+    let my_dir = read_dir("./fixture/a");
     match my_dir {
         Ok(dir) => {
             dir.for_each(|file| {
