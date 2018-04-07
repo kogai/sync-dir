@@ -1,13 +1,22 @@
 use std::fs::read_dir;
 
 fn main() {
-    let my_dir = read_dir("/home/kogai/Download");
+    let my_dir = read_dir("/home/kogai/Downloads");
+    // let my_dir = read_dir("/run/media/kogai/AGPTEK-A01T");
     match my_dir {
-        Ok(_) => {
-            println!("CAN READ");
+        Ok(dir) => {
+            dir.for_each(|file| {
+                if let Ok(f) = file {
+                    if let Ok(meta) = f.metadata() {
+                        if let Ok(t) = meta.modified() {
+                            println!("{:?} was modified at {:?}", f.file_name(), t);
+                        }
+                    }
+                }
+            });
         }
-        Err(_) => {
-            println!("CAN'T READ");
+        Err(x) => {
+            println!("{}", x);
         }
     }
 }
