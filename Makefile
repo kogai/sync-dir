@@ -1,7 +1,10 @@
 .PHONY: run
 run: init
+	ls -R fixture > fixture.text
 	cargo run
 	cat fixture/b/1.file
+	echo "-----" >> fixture.text
+	ls -R fixture >> fixture.text
 
 .PHONY: init
 init: clean
