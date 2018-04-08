@@ -18,6 +18,12 @@ init: clean
 	touch fixture/b/2.file
 	touch fixture/a/aa/3.file
 
+	touch fixture/a/4.file
+	touch fixture/b/4.file
+
+	sleep 0.1
+	rm fixture/a/4.file
+
 	echo "1" > fixture/a/1.file
 	echo "do not overwrite" > fixture/b/1.file
 	echo "2" > fixture/b/2.file

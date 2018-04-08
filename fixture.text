@@ -12,6 +12,7 @@ fixture/a/aa:
 fixture/b:
 1.file
 2.file
+4.file
 -----
 fixture:
 a
