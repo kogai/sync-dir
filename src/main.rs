@@ -3,9 +3,10 @@ extern crate im;
 use std::io::Result;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
-use std::fs::{copy, read_dir, DirEntry, File, FileType};
+use std::fs::{copy, create_dir_all, read_dir, DirEntry, File, FileType};
 use im::HashMap;
 
+/*
 fn open_file(d: std::io::Result<DirEntry>) -> Result<()> {
     let dir_entry = try!(d);
     let file = try!(File::open(dir_entry.path()));
@@ -15,6 +16,7 @@ fn open_file(d: std::io::Result<DirEntry>) -> Result<()> {
     // try!(copy(dir_entry.path(), Path::new("./fixture/b/1")));
     Ok(())
 }
+*/
 
 #[derive(Debug)]
 pub struct Summary {
@@ -93,8 +95,6 @@ fn collect_diff(
 fn main() {
     let a = correct("./fixture/a");
     let b = correct("./fixture/b");
-    // println!("{:?}", a);
-    // println!("{:?}", b);
     let diff_a = collect_diff(
         &a,
         &b,
@@ -103,14 +103,8 @@ fn main() {
     );
     println!("{:?}", diff_a);
     diff_a.iter().for_each(|diff| {
-        match copy(&diff.from, &diff.to) {
-            Ok(id) => {
-                println!("Copy succeed {}", id);
-            }
-            Err(e) => {
-                println!("Copy failed {:?}", e);
-            }
-        };
+        let _ = create_dir_all(diff.to.parent().unwrap());
+        let _ = copy(&diff.from, &diff.to);
     })
     // match my_dir {
     //     Ok(dir) => {
