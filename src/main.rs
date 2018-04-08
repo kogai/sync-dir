@@ -3,20 +3,8 @@ extern crate im;
 use std::io::Result;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
-use std::fs::{copy, create_dir_all, read_dir, DirEntry, File, FileType};
+use std::fs::{copy, create_dir_all, read_dir, DirEntry, FileType};
 use im::HashMap;
-
-/*
-fn open_file(d: std::io::Result<DirEntry>) -> Result<()> {
-    let dir_entry = try!(d);
-    let file = try!(File::open(dir_entry.path()));
-    let meta = try!(dir_entry.metadata());
-    let time = try!(meta.modified());
-    println!("{:?} was modified at {:?}", file, time);
-    // try!(copy(dir_entry.path(), Path::new("./fixture/b/1")));
-    Ok(())
-}
-*/
 
 #[derive(Debug)]
 pub struct Summary {
@@ -106,14 +94,4 @@ fn main() {
         let _ = create_dir_all(diff.to.parent().unwrap());
         let _ = copy(&diff.from, &diff.to);
     })
-    // match my_dir {
-    //     Ok(dir) => {
-    //         dir.for_each(|dir_entry| {
-    //             open_file(dir_entry);
-    //         });
-    //     }
-    //     Err(x) => {
-    //         println!("{}", x);
-    //     }
-    // };
 }

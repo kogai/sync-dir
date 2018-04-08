@@ -1,9 +1,9 @@
 .PHONY: run
-run: clean init
+run: init
 	cargo run
 
 .PHONY: init
-init:
+init: clean
 	mkdir fixture
 	mkdir fixture/a
 	mkdir fixture/b
