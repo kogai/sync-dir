@@ -30,9 +30,12 @@ impl Summary {
 }
 type Collection = HashMap<PathBuf, Summary>;
 
-fn correct<P: AsRef<Path>>(path: P) -> Collection {
-    let path = Path::new(path.as_ref());
-    match read_dir(path) {
+fn collect(root_path: PathBuf, current_path: Option<PathBuf>) -> Collection {
+    let strip_path = match current_path {
+        Some(path) => path,
+        None => root_path.clone(),
+    };
+    match read_dir(&root_path) {
         Ok(entries) => entries
             .fold(Ok(HashMap::new()), |acc: Result<Collection>, d| {
                 let dir_entry = try!(d);
@@ -40,9 +43,12 @@ fn correct<P: AsRef<Path>>(path: P) -> Collection {
                 let result = try!(acc);
                 let a = Summary::new(&dir_entry);
                 let key_with_root = dir_entry.path();
-                let key = key_with_root.strip_prefix(&path).unwrap().to_path_buf();
+                let key = key_with_root
+                    .strip_prefix(&strip_path)
+                    .unwrap()
+                    .to_path_buf();
                 if file_type.is_dir() {
-                    Ok(result.union(&correct(&key_with_root)))
+                    Ok(result.union(&collect(key_with_root, Some(root_path.clone()))))
                 } else {
                     Ok(result.insert(key, a))
                 }
@@ -95,8 +101,10 @@ fn collect_diff<P: AsRef<Path>>(
 }
 
 fn main() {
-    let a = correct("./fixture/a");
-    let b = correct("./fixture/b");
+    let a_path = Path::new("./fixture/a").to_owned();
+    let b_path = Path::new("./fixture/b").to_owned();
+    let a = collect(a_path, None);
+    let b = collect(b_path, None);
     let diff_a = collect_diff(&a, &b, "./fixture/a", "./fixture/b");
     println!("{:?}", diff_a);
     diff_a.iter().for_each(|diff| {
