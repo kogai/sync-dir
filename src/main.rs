@@ -30,18 +30,27 @@ impl Summary {
 }
 type Collection = HashMap<PathBuf, Summary>;
 
-fn correct<P: AsRef<Path>>(path: P) -> Collection {
-    match read_dir(path) {
+fn collect(root_path: PathBuf, current_path: Option<PathBuf>) -> Collection {
+    let strip_path = match current_path {
+        Some(path) => path,
+        None => root_path.clone(),
+    };
+    match read_dir(&root_path) {
         Ok(entries) => entries
             .fold(Ok(HashMap::new()), |acc: Result<Collection>, d| {
                 let dir_entry = try!(d);
                 let file_type = try!(dir_entry.file_type());
                 let result = try!(acc);
                 let a = Summary::new(&dir_entry);
+                let key_with_root = dir_entry.path();
+                let key = key_with_root
+                    .strip_prefix(&strip_path)
+                    .unwrap()
+                    .to_path_buf();
                 if file_type.is_dir() {
-                    Ok(result.union(&correct(dir_entry.path())))
+                    Ok(result.union(&collect(key_with_root, Some(root_path.clone()))))
                 } else {
-                    Ok(result.insert(dir_entry.path(), a))
+                    Ok(result.insert(key, a))
                 }
             })
             .unwrap(),
@@ -67,28 +76,36 @@ fn collect_diff(
     root_of_from: PathBuf,
     root_of_to: PathBuf,
 ) -> im::ConsList<Difference> {
-    from.difference(to).iter().fold(
+    from.iter().fold(
         im::ConsList::new(),
-        |acc: im::ConsList<Difference>, (path, _summary)| {
-            let root = root_of_from.to_str().unwrap();
-            let to_path = path.strip_prefix(root).unwrap();
-            let mut path_to = Path::new(&root_of_to).to_path_buf();
-            path_to.push(to_path);
-            let my_result = Difference::new(Path::new(path.as_ref()).to_path_buf(), path_to);
-            acc.cons(my_result)
+        |acc: im::ConsList<Difference>, (path, source_summary)| {
+            let mut source_path = root_of_from.clone();
+            let mut dist_path = root_of_to.clone();
+            source_path.push(path.as_ref());
+            dist_path.push(path.as_ref());
+
+            match to.get(&path) {
+                Some(dist_summary) => {
+                    let source_modified = source_summary.modified;
+                    let dist_modified = dist_summary.modified;
+                    if source_modified >= dist_modified {
+                        acc.cons(Difference::new(source_path, dist_path))
+                    } else {
+                        acc
+                    }
+                }
+                None => acc.cons(Difference::new(source_path, dist_path)),
+            }
         },
     )
 }
 
 fn main() {
-    let a = correct("./fixture/a");
-    let b = correct("./fixture/b");
-    let diff_a = collect_diff(
-        &a,
-        &b,
-        Path::new("./fixture/a").to_path_buf(),
-        Path::new("./fixture/b").to_path_buf(),
-    );
+    let a_path = Path::new("./fixture/a").to_owned();
+    let b_path = Path::new("./fixture/b").to_owned();
+    let a = collect(a_path.clone(), None);
+    let b = collect(b_path.clone(), None);
+    let diff_a = collect_diff(&a, &b, a_path, b_path);
     println!("{:?}", diff_a);
     diff_a.iter().for_each(|diff| {
         let _ = create_dir_all(diff.to.parent().unwrap());
