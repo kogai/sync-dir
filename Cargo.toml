@@ -5,3 +5,6 @@ authors = ["Shinichi Kogai <kogai0121@gmail.com>"]
 
 [dependencies]
 im = "*"
+serde = "*"
+serde_derive = "*"
+serde_json = "*"

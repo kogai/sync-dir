@@ -1,10 +1,17 @@
 extern crate im;
+extern crate serde;
+extern crate serde_json;
+
+#[macro_use]
+extern crate serde_derive;
 
 use std::io::Result;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use std::fs::{copy, create_dir_all, read_dir, DirEntry, FileType};
-use im::HashMap;
+use im::{ConsList, HashMap};
+
+mod history;
 
 #[derive(Debug)]
 pub struct Summary {
@@ -75,10 +82,10 @@ fn collect_diff(
     to: &Collection,
     root_of_from: PathBuf,
     root_of_to: PathBuf,
-) -> im::ConsList<Difference> {
+) -> ConsList<Difference> {
     from.iter().fold(
-        im::ConsList::new(),
-        |acc: im::ConsList<Difference>, (path, source_summary)| {
+        ConsList::new(),
+        |acc: ConsList<Difference>, (path, source_summary)| {
             let mut source_path = root_of_from.clone();
             let mut dist_path = root_of_to.clone();
             source_path.push(path.as_ref());
@@ -103,6 +110,9 @@ fn collect_diff(
 fn main() {
     let a_path = Path::new("./fixture/a").to_owned();
     let b_path = Path::new("./fixture/b").to_owned();
+    let a_history = history::History::new(a_path);
+    println!("{:?}", a_history);
+    /*
     let a = collect(a_path.clone(), None);
     let b = collect(b_path.clone(), None);
     let diff_a = collect_diff(&a, &b, a_path, b_path);
@@ -111,4 +121,5 @@ fn main() {
         let _ = create_dir_all(diff.to.parent().unwrap());
         let _ = copy(&diff.from, &diff.to);
     })
+    */
 }
