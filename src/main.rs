@@ -70,17 +70,17 @@ impl Difference {
     }
 }
 
-fn collect_diff<P: AsRef<Path>>(
+fn collect_diff(
     from: &Collection,
     to: &Collection,
-    root_of_from: P,
-    root_of_to: P,
+    root_of_from: PathBuf,
+    root_of_to: PathBuf,
 ) -> im::ConsList<Difference> {
     from.iter().fold(
         im::ConsList::new(),
         |acc: im::ConsList<Difference>, (path, source_summary)| {
-            let mut source_path = Path::new(root_of_from.as_ref()).to_path_buf();
-            let mut dist_path = Path::new(root_of_to.as_ref()).to_path_buf();
+            let mut source_path = root_of_from.clone();
+            let mut dist_path = root_of_to.clone();
             source_path.push(path.as_ref());
             dist_path.push(path.as_ref());
 
@@ -103,9 +103,9 @@ fn collect_diff<P: AsRef<Path>>(
 fn main() {
     let a_path = Path::new("./fixture/a").to_owned();
     let b_path = Path::new("./fixture/b").to_owned();
-    let a = collect(a_path, None);
-    let b = collect(b_path, None);
-    let diff_a = collect_diff(&a, &b, "./fixture/a", "./fixture/b");
+    let a = collect(a_path.clone(), None);
+    let b = collect(b_path.clone(), None);
+    let diff_a = collect_diff(&a, &b, a_path, b_path);
     println!("{:?}", diff_a);
     diff_a.iter().for_each(|diff| {
         let _ = create_dir_all(diff.to.parent().unwrap());
