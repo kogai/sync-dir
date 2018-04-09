@@ -1,4 +1,5 @@
 extern crate im;
+extern crate regex;
 extern crate serde;
 extern crate serde_json;
 
