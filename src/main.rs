@@ -111,7 +111,9 @@ fn main() {
     let a_path = Path::new("./fixture/a").to_owned();
     let b_path = Path::new("./fixture/b").to_owned();
     let a_history = history::History::new(a_path);
+    let a_json = serde_json::to_string(&a_history);
     println!("{:?}", a_history);
+    println!("{:?}", a_json);
     /*
     let a = collect(a_path.clone(), None);
     let b = collect(b_path.clone(), None);

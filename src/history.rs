@@ -1,12 +1,10 @@
 use std::str::FromStr;
-use std::result;
 use std::io::{Result, Write};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use std::fs::{read_dir, File};
 use im::{ConsList, HashMap};
 use regex::Regex;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json;
 
 fn i32_of_systemtime(x: SystemTime) -> i32 {
@@ -35,39 +33,11 @@ pub enum Event {
   Delete(i32),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct History {
   root: PathBuf,
   histories: HashMap<PathBuf, ConsList<Event>>,
 }
-
-// impl Serialize for History {
-//   fn serialize<S>(&self, serializer: S) -> result::Result<S::Ok, S::Error>
-//   where
-//     S: Serializer,
-//   {
-//     let mut s = try!(serializer.serialize_struct("History", 2));
-//     s.serialize_field("root", &self.root)?;
-//     // let mut map = serializer.serialize_map(Some(self.len()))?;
-//     // let mut map = serializer.serialize_map(Some(10))?;
-//     // for (k, v) in self {
-//     //     map.serialize_entry(k, v)?;
-//     // }
-//     // map.end()
-//     // s.serialize_field("histories", &self.histories)?;
-//     // s.end()
-//     unimplemented!();
-//   }
-// }
-
-// impl Deserialize for History {
-//   fn deserialize<D>(deserializer: D) -> result::Result<Self, D::Error>
-//   where
-//     D: Deserializer,
-//   {
-//     unimplemented!();
-//   }
-// }
 
 impl History {
   pub fn new(root: PathBuf) -> Self {
@@ -118,27 +88,29 @@ impl History {
   }
 
   fn write(&self) {
-    // let mut history_path = Path::new(&self.root).to_path_buf();
-    // history_path.push(".history.json");
-    // match File::create(history_path) {
-    //   Ok(mut file) => {
-    //     match file.write_all(b"&self.histories") {
-    //       Ok(_) => {}
-    //       Err(e) => {
-    //         println!("{:?}", e);
-    //         unreachable!();
-    //       }
-    //     };
-    //   }
-    //   Err(e) => {
-    //     println!("{:?}", e);
-    //     unreachable!();
-    //   }
-    // };
-    // let result = serde_json::from_str::<ConsList<i32>>("");
-    let x = serde_json::to_string(&Event::Change(1));
-    let y = serde_json::to_string(&ConsList::new());
-    // let result = serde_json::from_str::<Event>("");
-    unimplemented!();
+    let mut history_path = Path::new(&self.root).to_path_buf();
+    history_path.push(".history.json");
+    match (
+      File::create(&history_path),
+      serde_json::to_string_pretty(&self.histories),
+    ) {
+      (Ok(mut file), Ok(json)) => {
+        match file.write_all(json.as_bytes()) {
+          Ok(_) => println!("History file generated at {:?}", &history_path),
+          Err(e) => {
+            println!("{:?}", e);
+            unreachable!();
+          }
+        };
+      }
+      (Err(e), _) => {
+        println!("{:?}", e);
+        unreachable!();
+      }
+      (_, Err(e)) => {
+        println!("{:?}", e);
+        unreachable!();
+      }
+    };
   }
 }
