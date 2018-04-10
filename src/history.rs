@@ -33,6 +33,11 @@ pub enum Event {
   Delete(i32),
 }
 
+pub enum Dawn {
+  PreHistory,
+  HasHistory,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct History {
   root: PathBuf,
@@ -41,8 +46,11 @@ pub struct History {
 
 impl History {
   pub fn new(root: PathBuf) -> Self {
-    // TODO: Handle pattern when already exist History
-    let histories = History::generate_history(root.clone(), None);
+    let histories = match File::open(&root) {
+      // TODO: Handle pattern when already exist History
+      Ok(_) => History::generate_history(root.clone(), None, &Dawn::HasHistory),
+      Err(_) => History::generate_history(root.clone(), None, &Dawn::PreHistory),
+    };
     let instance = History { root, histories };
     instance.write();
     instance
@@ -51,6 +59,7 @@ impl History {
   fn generate_history(
     root_path: PathBuf,
     current_path: Option<PathBuf>,
+    has_history: &Dawn,
   ) -> HashMap<PathBuf, ConsList<Event>> {
     let strip_path = match current_path {
       Some(path) => path,
@@ -76,6 +85,7 @@ impl History {
               Ok(acc.union(&History::generate_history(
                 key_with_root,
                 Some(root_path.clone()),
+                has_history,
               )))
             } else {
               Ok(acc.insert(key, history_of_file))
@@ -83,7 +93,7 @@ impl History {
           },
         )
         .unwrap(),
-      Err(err) => unreachable!(err),
+      Err(e) => unreachable!(e),
     }
   }
 
@@ -97,20 +107,11 @@ impl History {
       (Ok(mut file), Ok(json)) => {
         match file.write_all(json.as_bytes()) {
           Ok(_) => println!("History file generated at {:?}", &history_path),
-          Err(e) => {
-            println!("{:?}", e);
-            unreachable!();
-          }
+          Err(e) => unreachable!(e),
         };
       }
-      (Err(e), _) => {
-        println!("{:?}", e);
-        unreachable!();
-      }
-      (_, Err(e)) => {
-        println!("{:?}", e);
-        unreachable!();
-      }
+      (Err(e), _) => unreachable!(e),
+      (_, Err(e)) => unreachable!(e),
     };
   }
 }
