@@ -1,10 +1,9 @@
 extern crate im;
 extern crate regex;
 extern crate serde;
-extern crate serde_json;
-
 #[macro_use]
 extern crate serde_derive;
+extern crate serde_json;
 
 use std::io::Result;
 use std::path::{Path, PathBuf};
