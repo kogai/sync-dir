@@ -48,8 +48,8 @@ pub enum Dawn {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct History {
-  root: PathBuf,
-  histories: HashMap<PathBuf, ConsList<Event>>,
+  pub root: PathBuf,
+  pub histories: HashMap<PathBuf, ConsList<Event>>,
 }
 
 impl History {
@@ -71,15 +71,22 @@ impl History {
                 None,
                 &Dawn::HasHistory(old_histories.clone()),
               );
+              // TODO: Handle case which always update .history.json
               old_histories.iter().fold(new_histories, |ns, old_history| {
                 let key = old_history.clone().0;
                 let value = old_history.clone().1;
                 match ns.get(&key) {
                   Some(_) => ns,
-                  None => ns.insert(
-                    key,
-                    value.cons(Event::Delete(i32_of_systemtime(SystemTime::now()))),
-                  ),
+                  None => {
+                    let hd = value.head().unwrap();
+                    match *hd {
+                      Event::Delete(_) => ns.insert(key, value),
+                      _ => ns.insert(
+                        key,
+                        value.cons(Event::Delete(i32_of_systemtime(SystemTime::now()))),
+                      ),
+                    }
+                  }
                 }
               })
             }
@@ -97,7 +104,7 @@ impl History {
       Err(_) => History::generate_history(root.clone(), None, &Dawn::PreHistory),
     };
     let instance = History { root, histories };
-    instance.write();
+    // instance.write();
     instance
   }
 
