@@ -65,11 +65,26 @@ impl History {
         let mut json_buf = Vec::new();
         match file.read_to_end(&mut json_buf) {
           Ok(_) => match serde_json::from_slice::<HashMap<PathBuf, ConsList<Event>>>(&json_buf) {
-            Ok(histories) => {
-              History::generate_history(root.clone(), None, &Dawn::HasHistory(histories))
+            Ok(old_histories) => {
+              let new_histories = History::generate_history(
+                root.clone(),
+                None,
+                &Dawn::HasHistory(old_histories.clone()),
+              );
+              old_histories.iter().fold(new_histories, |ns, old_history| {
+                let key = old_history.clone().0;
+                let value = old_history.clone().1;
+                match ns.get(&key) {
+                  Some(_) => ns,
+                  None => ns.insert(
+                    key,
+                    value.cons(Event::Delete(i32_of_systemtime(SystemTime::now()))),
+                  ),
+                }
+              })
             }
             Err(e) => {
-              println!("History file can't parse normaly.\n{:?}", e);
+              println!("JSON of history file can't parse normaly.\n{:?}", e);
               History::generate_history(root.clone(), None, &Dawn::PreHistory)
             }
           },
@@ -82,7 +97,7 @@ impl History {
       Err(_) => History::generate_history(root.clone(), None, &Dawn::PreHistory),
     };
     let instance = History { root, histories };
-    // instance.write();
+    instance.write();
     instance
   }
 
@@ -136,11 +151,6 @@ impl History {
             }
           },
         )
-        .map(|x| {
-          // TODO: Handle pattern when file deleted
-          println!("{:?}", x);
-          x
-        })
         .unwrap(),
       Err(e) => unreachable!(e),
     }
