@@ -1,5 +1,5 @@
 use std::str::FromStr;
-use std::io::{Result, Write};
+use std::io::{Read, Result, Write};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use std::fs::{read_dir, File};
@@ -33,9 +33,17 @@ pub enum Event {
   Delete(i32),
 }
 
+impl Event {
+  fn get_timestamp(&self) -> i32 {
+    match *self {
+      Event::Create(t) | Event::Change(t) | Event::Delete(t) => t,
+    }
+  }
+}
+
 pub enum Dawn {
   PreHistory,
-  HasHistory,
+  HasHistory(HashMap<PathBuf, ConsList<Event>>),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -45,14 +53,36 @@ pub struct History {
 }
 
 impl History {
+  pub fn history_path(root: &PathBuf) -> PathBuf {
+    let mut history_path = Path::new(&root).to_path_buf();
+    history_path.push(".history.json");
+    history_path
+  }
+
   pub fn new(root: PathBuf) -> Self {
-    let histories = match File::open(&root) {
-      // TODO: Handle pattern when already exist History
-      Ok(_) => History::generate_history(root.clone(), None, &Dawn::HasHistory),
+    let histories = match File::open(&History::history_path(&root)) {
+      Ok(mut file) => {
+        let mut json_buf = Vec::new();
+        match file.read_to_end(&mut json_buf) {
+          Ok(_) => match serde_json::from_slice::<HashMap<PathBuf, ConsList<Event>>>(&json_buf) {
+            Ok(histories) => {
+              History::generate_history(root.clone(), None, &Dawn::HasHistory(histories))
+            }
+            Err(e) => {
+              println!("History file can't parse normaly.\n{:?}", e);
+              History::generate_history(root.clone(), None, &Dawn::PreHistory)
+            }
+          },
+          Err(e) => {
+            println!("History file can't read normaly.\n{:?}", e);
+            History::generate_history(root.clone(), None, &Dawn::PreHistory)
+          }
+        }
+      }
       Err(_) => History::generate_history(root.clone(), None, &Dawn::PreHistory),
     };
     let instance = History { root, histories };
-    instance.write();
+    // instance.write();
     instance
   }
 
@@ -80,7 +110,21 @@ impl History {
               .strip_prefix(&strip_path)
               .unwrap()
               .to_path_buf();
-            let history_of_file = ConsList::new().cons(Event::Create(i32_of_systemtime(modified)));
+            let history_of_file = match *has_history {
+              Dawn::PreHistory => ConsList::new().cons(Event::Create(i32_of_systemtime(modified))),
+              Dawn::HasHistory(ref history) => match history.get(&key) {
+                Some(h) => {
+                  let timestamp_latest = h.head().unwrap().get_timestamp();
+                  let event = Event::Change(i32_of_systemtime(modified));
+                  if event.get_timestamp() > timestamp_latest {
+                    h.cons(event)
+                  } else {
+                    ConsList::new().append(h)
+                  }
+                }
+                None => ConsList::new().cons(Event::Create(i32_of_systemtime(modified))),
+              },
+            };
             if file_type.is_dir() {
               Ok(acc.union(&History::generate_history(
                 key_with_root,
@@ -92,14 +136,18 @@ impl History {
             }
           },
         )
+        .map(|x| {
+          // TODO: Handle pattern when file deleted
+          println!("{:?}", x);
+          x
+        })
         .unwrap(),
       Err(e) => unreachable!(e),
     }
   }
 
   fn write(&self) {
-    let mut history_path = Path::new(&self.root).to_path_buf();
-    history_path.push(".history.json");
+    let history_path = History::history_path(&self.root);
     match (
       File::create(&history_path),
       serde_json::to_string_pretty(&self.histories),
