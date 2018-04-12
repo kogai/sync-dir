@@ -1,7 +1,7 @@
 .PHONY: run
 run: init
 	find fixture > fixture.text
-	cargo run
+	cargo run -- ./fixture/a ./fixture/b
 	cat fixture/b/1.file # expect => do not overwrite
 	echo "-----" >> fixture.text
 	find fixture >> fixture.text
@@ -9,7 +9,7 @@ run: init
 	sleep 0.1
 	rm fixture/a/4.file
 	
-	cargo run
+	cargo run -- ./fixture/a ./fixture/b
 	echo "-----" >> fixture.text
 	find fixture >> fixture.text
 	cat fixture/a/1.file # expect => do not overwrite
