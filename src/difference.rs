@@ -1,6 +1,6 @@
 use history::{Event, History};
 use im::ConsList;
-use std::fs::{copy, create_dir_all};
+use std::fs::{copy, create_dir_all, remove_file};
 use std::path::PathBuf;
 
 #[derive(Debug)]
@@ -16,8 +16,15 @@ impl Difference {
     }
 
     pub fn sync_file(&self) {
-        let _ = create_dir_all(self.to.parent().unwrap());
-        let _ = copy(&self.from, &self.to);
+        match &self.event {
+            Event::Delete(_) => {
+                let _ = remove_file(&self.to);
+            }
+            _ => {
+                let _ = create_dir_all(self.to.parent().unwrap());
+                let _ = copy(&self.from, &self.to);
+            }
+        }
     }
 }
 
@@ -35,7 +42,7 @@ pub fn collect_diff(from: &History, to: &History) -> ConsList<Difference> {
             match to.histories.get(&path) {
                 Some(dist_history) => match (history.head(), dist_history.head()) {
                     (Some(h1), Some(h2)) => {
-                        if h1.get_timestamp() >= h2.get_timestamp() {
+                        if h1.get_timestamp() > h2.get_timestamp() {
                             acc.cons(Difference::new(source_path, dist_path, *h1))
                         } else {
                             acc

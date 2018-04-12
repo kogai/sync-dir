@@ -16,12 +16,11 @@ fn main() {
     let a_history = history::History::new(a_path);
     let b_history = history::History::new(b_path);
     println!("{:?}", a_history);
-
     println!("{:?}", b_history);
 
     let diff_a = difference::collect_diff(&a_history, &b_history);
-    let diff_b = difference::collect_diff(&b_history, &a_history);
+    // let diff_b = difference::collect_diff(&b_history, &a_history);
     println!("{:?}", diff_a);
-    println!("{:?}", diff_b);
+    // println!("{:?}", diff_b);
     diff_a.iter().for_each(|diff| diff.sync_file())
 }
