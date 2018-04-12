@@ -19,8 +19,9 @@ fn main() {
     println!("{:?}", b_history);
 
     let diff_a = difference::collect_diff(&a_history, &b_history);
-    // let diff_b = difference::collect_diff(&b_history, &a_history);
-    println!("{:?}", diff_a);
-    // println!("{:?}", diff_b);
-    diff_a.iter().for_each(|diff| diff.sync_file())
+    let diff_b = difference::collect_diff(&b_history, &a_history);
+    println!("{:?}", &diff_a);
+    println!("{:?}", &diff_b);
+    diff_a.iter().for_each(|diff| diff.sync_file());
+    diff_b.iter().for_each(|diff| diff.sync_file());
 }

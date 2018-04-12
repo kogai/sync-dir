@@ -16,6 +16,7 @@ fixture/a/aa/3.file
 fixture/a/1.file
 fixture/a/4.file
 fixture/a/.history.json
+fixture/a/2.file
 fixture/b
 fixture/b/1.file
 fixture/b/2.file
@@ -30,6 +31,7 @@ fixture/a/aa
 fixture/a/aa/3.file
 fixture/a/1.file
 fixture/a/.history.json
+fixture/a/2.file
 fixture/b
 fixture/b/1.file
 fixture/b/2.file
