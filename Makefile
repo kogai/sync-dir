@@ -6,7 +6,7 @@ run: init
 	echo "-----" >> fixture.text
 	find fixture >> fixture.text
 
-	sleep 1
+	sleep 0.1
 	rm fixture/a/4.file
 	
 	cargo run
