@@ -5,9 +5,9 @@ extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
 
-use std::path::{Path, PathBuf};
-use std::fs::{copy, create_dir_all};
 use im::ConsList;
+use std::fs::{copy, create_dir_all};
+use std::path::{Path, PathBuf};
 
 mod history;
 
@@ -15,40 +15,44 @@ mod history;
 pub struct Difference {
     from: PathBuf,
     to: PathBuf,
+    event: history::Event,
 }
 
 impl Difference {
-    fn new(from: PathBuf, to: PathBuf) -> Self {
-        Difference { from, to }
+    fn new(from: PathBuf, to: PathBuf, event: history::Event) -> Self {
+        Difference { from, to, event }
     }
 }
 
 fn collect_diff(from: &history::History, to: &history::History) -> ConsList<Difference> {
-    from.histories.iter().fold(
-        ConsList::new(),
-        |acc, (path, history)| {
+    from.histories
+        .iter()
+        .fold(ConsList::new(), |acc, (path, history)| {
+            if from.is_history(&path) {
+                return acc;
+            }
             let mut source_path = from.root.clone();
             let mut dist_path = to.root.clone();
             source_path.push(path.as_ref());
             dist_path.push(path.as_ref());
-          unimplemented!();
-        }
-        //     |acc: ConsList<Difference>, (path, source_summary)| {
-
-    //         match to.get(&path) {
-    //             Some(dist_summary) => {
-    //                 let source_modified = source_summary.modified;
-    //                 let dist_modified = dist_summary.modified;
-    //                 if source_modified >= dist_modified {
-    //                     acc.cons(Difference::new(source_path, dist_path))
-    //                 } else {
-    //                     acc
-    //                 }
-    //             }
-    //             None => acc.cons(Difference::new(source_path, dist_path)),
-    //         }
-    //     },
-    )
+            match to.histories.get(&path) {
+                Some(dist_history) => match (history.head(), dist_history.head()) {
+                    (Some(h1), Some(h2)) => {
+                        if h1.get_timestamp() >= h2.get_timestamp() {
+                            acc.cons(Difference::new(source_path, dist_path, *h1))
+                        } else {
+                            acc
+                        }
+                    }
+                    (_, _) => unreachable!(),
+                },
+                None => acc.cons(Difference::new(
+                    source_path,
+                    dist_path,
+                    *history.head().unwrap(),
+                )),
+            }
+        })
 }
 
 fn main() {
@@ -61,8 +65,8 @@ fn main() {
 
     let diff_a = collect_diff(&a_history, &b_history);
     println!("{:?}", diff_a);
-    diff_a.iter().for_each(|diff| {
-        let _ = create_dir_all(diff.to.parent().unwrap());
-        let _ = copy(&diff.from, &diff.to);
-    })
+    // diff_a.iter().for_each(|diff| {
+    //     let _ = create_dir_all(diff.to.parent().unwrap());
+    //     let _ = copy(&diff.from, &diff.to);
+    // })
 }

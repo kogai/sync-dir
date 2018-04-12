@@ -1,11 +1,11 @@
-use std::str::FromStr;
-use std::io::{Read, Result, Write};
-use std::path::{Path, PathBuf};
-use std::time::SystemTime;
-use std::fs::{read_dir, File};
 use im::{ConsList, HashMap};
 use regex::Regex;
 use serde_json;
+use std::fs::{read_dir, File};
+use std::io::{Read, Result, Write};
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
+use std::time::SystemTime;
 
 fn i32_of_systemtime(x: SystemTime) -> i32 {
   let stringified = format!("{:?}", x);
@@ -26,7 +26,7 @@ fn i32_of_systemtime(x: SystemTime) -> i32 {
   }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub enum Event {
   Create(i32),
   Change(i32),
@@ -34,7 +34,7 @@ pub enum Event {
 }
 
 impl Event {
-  fn get_timestamp(&self) -> i32 {
+  pub fn get_timestamp(&self) -> i32 {
     match *self {
       Event::Create(t) | Event::Change(t) | Event::Delete(t) => t,
     }
@@ -57,6 +57,12 @@ impl History {
     let mut history_path = Path::new(&root).to_path_buf();
     history_path.push(".history.json");
     history_path
+  }
+
+  pub fn is_history(&self, p: &PathBuf) -> bool {
+    let mut path = Path::new(&self.root).to_path_buf();
+    path.push(p);
+    Self::history_path(&self.root) == path
   }
 
   pub fn new(root: PathBuf) -> Self {
