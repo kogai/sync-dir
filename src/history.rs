@@ -110,7 +110,7 @@ impl History {
       Err(_) => History::generate_history(root.clone(), None, &Dawn::PreHistory),
     };
     let instance = History { root, histories };
-    // instance.write();
+    instance.write();
     instance
   }
 
