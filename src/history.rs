@@ -177,7 +177,7 @@ impl History {
     ) {
       (Ok(mut file), Ok(json)) => {
         match file.write_all(json.as_bytes()) {
-          Ok(_) => println!("History file generated at {:?}", &history_path),
+          Ok(_) => println!("History file updated at {:?}", &history_path),
           Err(e) => unreachable!(e),
         };
       }

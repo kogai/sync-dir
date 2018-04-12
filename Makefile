@@ -1,7 +1,7 @@
 .PHONY: run
 run: init
 	find fixture > fixture.text
-	cargo run
+	cargo run -- ./fixture/a ./fixture/b
 	cat fixture/b/1.file # expect => do not overwrite
 	echo "-----" >> fixture.text
 	find fixture >> fixture.text
@@ -9,9 +9,10 @@ run: init
 	sleep 0.1
 	rm fixture/a/4.file
 	
-	cargo run
+	cargo run -- ./fixture/a ./fixture/b
 	echo "-----" >> fixture.text
 	find fixture >> fixture.text
+	cat fixture/a/1.file # expect => do not overwrite
 
 .PHONY: init
 init: clean
@@ -20,8 +21,6 @@ init: clean
 	mkdir fixture/b
 	mkdir fixture/a/aa
 
-	touch -d "9 days ago" fixture/a/1.file
-	touch -d "1 days ago" fixture/b/1.file
 	touch fixture/b/2.file
 	touch fixture/a/aa/3.file
 
@@ -32,6 +31,9 @@ init: clean
 	echo "do not overwrite" > fixture/b/1.file
 	echo "2" > fixture/b/2.file
 	echo "3" > fixture/a/aa/3.file
+
+	touch -d "9 days ago" fixture/a/1.file
+	touch -d "1 days ago" fixture/b/1.file
 
 .PHONY: clean
 clean:
