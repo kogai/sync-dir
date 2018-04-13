@@ -189,6 +189,7 @@ impl History {
   }
 }
 
+#[cfg(test)]
 mod test {
   use super::*;
 
