@@ -193,9 +193,8 @@ mod test {
   use super::*;
 
   #[test]
-  fn test_generate_history() {
-    let a = ConsList::new().cons(1);
-    let b = ConsList::new().cons(1);
-    assert_eq!(a, b);
+  fn test_history_path() {
+    let p = History::history_path(&Path::new("foo").to_path_buf());
+    assert_eq!(p, Path::new("foo/.history.json").to_path_buf());
   }
 }

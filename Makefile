@@ -13,6 +13,7 @@ run: init
 	echo "-----" >> fixture.text
 	find fixture >> fixture.text
 	cat fixture/a/1.file # expect => do not overwrite
+	git status -s fixture.text
 
 .PHONY: init
 init: clean
