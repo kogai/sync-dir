@@ -21,8 +21,5 @@ jobs:
             cache-key-{{ .Environment.COMMON_CACHE_KEY }}-{{ checksum
             "Cargo.lock" }}
       - run:
-          name: Update toolchain
-          command: rustup update
-      - run:
           name: Run tests
           command: cargo test

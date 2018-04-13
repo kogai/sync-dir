@@ -17,7 +17,7 @@ impl Difference {
 
     pub fn sync_file(&self) {
         match &self.event {
-            Event::Delete(_) => {
+            &Event::Delete(_) => {
                 let _ = remove_file(&self.to);
             }
             _ => {
