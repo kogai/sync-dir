@@ -159,6 +159,8 @@ impl History {
                 Some(root_path.clone()),
                 has_history,
               )))
+            } else if &key.to_string_lossy() == ".history.json" {
+              Ok(acc)
             } else {
               Ok(acc.insert(key, history_of_file))
             }
