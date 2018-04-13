@@ -12,16 +12,63 @@ extern crate clap;
 extern crate rust_embed;
 #[macro_use]
 extern crate log;
+extern crate libudev;
 extern crate toml;
 
 use clap::{App, Arg};
 use std::path::Path;
+use std::thread;
+use std::time::Duration;
 
 mod config;
 mod difference;
 mod history;
 
 fn main() {
+    let context = libudev::Context::new().unwrap();
+    let mut monitor = libudev::Monitor::new(&context).unwrap();
+
+    let _ = monitor.match_subsystem_devtype("usb", "usb_device");
+    let mut socket = monitor.listen().unwrap();
+
+    loop {
+        let event = match socket.receive_event() {
+            Some(evt) => evt,
+            None => {
+                thread::sleep(Duration::from_millis(10));
+                continue;
+            }
+        };
+
+        println!(
+            "{}: {} {} (sysname={}, devtype={})",
+            event.sequence_number(),
+            event.event_type(),
+            event.syspath().to_str().unwrap_or("---"),
+            event.sysname().to_str().unwrap_or(""),
+            event.devtype().map_or("", |s| s.to_str().unwrap_or(""))
+        );
+    }
+    // let context = libudev::Context::new().unwrap();
+    // let mut enumerator = libudev::Enumerator::new(&context).unwrap();
+
+    // enumerator.match_subsystem("tty").unwrap();
+
+    // for device in enumerator.scan_devices().unwrap() {
+    //     // println!("found device: {:?}", device.syspath());
+    //     println!("");
+    //     println!("initialized: {:?}", device.is_initialized());
+    //     println!("     devnum: {:?}", device.devnum());
+    //     println!("    syspath: {:?}", device.syspath());
+    //     println!("    devpath: {:?}", device.devpath());
+    //     println!("  subsystem: {:?}", device.subsystem());
+    //     println!("    sysname: {:?}", device.sysname());
+    //     println!("     sysnum: {:?}", device.sysnum());
+    //     println!("    devtype: {:?}", device.devtype());
+    //     println!("     driver: {:?}", device.driver());
+    //     println!("    devnode: {:?}", device.devnode());
+    // }
+    /*
     let (name, version) = config::Config::get_config();
 
     let matches = App::new(name)
@@ -58,4 +105,4 @@ fn main() {
     println!("{:?}", &diff_b);
     diff_a.iter().for_each(|diff| diff.sync_file());
     diff_b.iter().for_each(|diff| diff.sync_file());
-}
+    */}
