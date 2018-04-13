@@ -15,32 +15,17 @@ extern crate log;
 extern crate toml;
 
 use clap::{App, Arg};
-// use std::path::Path;
+use std::path::Path;
 
+mod config;
 mod difference;
 mod history;
 
-#[derive(RustEmbed)]
-#[folder("./")]
-struct Asset;
-
-#[derive(Debug, Deserialize, Serialize)]
-struct Config {
-    package: PackageConfig,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-struct PackageConfig {
-    name: String,
-    version: String,
-}
-
 fn main() {
-    let cargo_toml = Asset::get("Cargo.toml").unwrap();
-    let cargo_toml = toml::from_str::<Config>(std::str::from_utf8(&cargo_toml).unwrap()).unwrap();
+    let (name, version) = config::Config::get_config();
 
-    let matches = App::new(cargo_toml.package.name)
-        .version(cargo_toml.package.version.as_ref())
+    let matches = App::new(name)
+        .version(version.as_ref())
         .about("Synchronize directories bidirectional")
         .arg(
             Arg::with_name("dir_a")
