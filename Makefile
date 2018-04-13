@@ -1,3 +1,11 @@
+NAME := sync-dir
+SRC := $(shell find ./src -type f -name '*.rs')
+
+bin/$(NAME): Cargo.toml $(SRC)
+	docker build -t $(NAME) .
+	docker run --rm -v `pwd`/target:/app/target -t $(NAME)
+	cp target/release/$(NAME) bin/$(NAME)
+
 .PHONY: run
 run: init
 	find fixture > fixture.text
