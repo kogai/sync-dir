@@ -188,3 +188,14 @@ impl History {
     };
   }
 }
+
+mod test {
+  use super::*;
+
+  #[test]
+  fn test_generate_history() {
+    let a = ConsList::new().cons(1);
+    let b = ConsList::new().cons(1);
+    assert_eq!(a, b);
+  }
+}
