@@ -159,6 +159,8 @@ impl History {
                 Some(root_path.clone()),
                 has_history,
               )))
+            } else if &key.to_string_lossy() == ".history.json" {
+              Ok(acc)
             } else {
               Ok(acc.insert(key, history_of_file))
             }
@@ -184,5 +186,15 @@ impl History {
       (Err(e), _) => unreachable!(e),
       (_, Err(e)) => unreachable!(e),
     };
+  }
+}
+
+mod test {
+  use super::*;
+
+  #[test]
+  fn test_history_path() {
+    let p = History::history_path(&Path::new("foo").to_path_buf());
+    assert_eq!(p, Path::new("foo/.history.json").to_path_buf());
   }
 }
