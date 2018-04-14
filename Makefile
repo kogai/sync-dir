@@ -1,4 +1,5 @@
 NAME := sync-dir
+BIN := ./target/release/$(NAME)
 SRC := $(shell find ./src -type f -name '*.rs')
 
 bin/$(NAME): Cargo.toml $(SRC)
@@ -8,16 +9,17 @@ bin/$(NAME): Cargo.toml $(SRC)
 
 .PHONY: run
 run: init
+	cargo build --release
 	find fixture > fixture.text
-	cargo run -- -s ./fixture/a ./fixture/b
+	$(BIN) -s ./fixture/a ./fixture/b
 	cat fixture/b/1.file # expect => do not overwrite
 	echo "-----" >> fixture.text
 	find fixture >> fixture.text
 
-	sleep 0.1
+	sleep 0.5
 	rm fixture/a/4.file
 	
-	cargo run -- -s ./fixture/a ./fixture/b
+	$(BIN) -s ./fixture/a ./fixture/b
 	echo "-----" >> fixture.text
 	find fixture >> fixture.text
 	cat fixture/a/1.file # expect => do not overwrite
@@ -46,5 +48,5 @@ init: clean
 
 .PHONY: clean
 clean:
-	rm ~/.sync-dir.conf
-	rm -r fixture
+	rm -f ~/.sync-dir.conf
+	rm -rf fixture
