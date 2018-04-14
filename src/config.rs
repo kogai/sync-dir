@@ -1,6 +1,7 @@
 use im::*;
 use serde_json::{from_slice, to_string_pretty};
 use std::env;
+use std::fs::read_dir;
 use std::io::Write;
 use std::path::PathBuf;
 use std::str::from_utf8;
@@ -34,14 +35,17 @@ impl Package {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Configuration(ConsList<(PathBuf, PathBuf)>);
+pub struct Configuration(Set<(PathBuf, PathBuf)>);
 
 impl Configuration {
-  pub fn new() -> Self {
-    let configuration_path = env::home_dir()
+  fn configuration_path() -> PathBuf {
+    env::home_dir()
       .and_then(|p| Some(p.join(".sync-dir.conf")))
-      .unwrap();
+      .unwrap()
+  }
 
+  pub fn new() -> Self {
+    let configuration_path = Self::configuration_path();
     match File::open(&configuration_path) {
       Ok(mut file) => {
         let mut buf = Vec::new();
@@ -49,24 +53,42 @@ impl Configuration {
         from_slice::<Configuration>(&buf).unwrap()
       }
       Err(_) => {
-        let instance = Configuration(ConsList::new());
-        match (
-          File::create(&configuration_path),
-          to_string_pretty(&instance),
-        ) {
-          (Ok(mut file), Ok(json)) => {
-            match file.write_all(json.as_bytes()) {
-              Ok(_) => println!(
-                "Configuration file has been created at {:?}",
-                &configuration_path
-              ),
-              Err(e) => unreachable!(e),
-            };
-          }
-          (e1, e2) => unreachable!(format!("{:?}\n{:?}", e1, e2)),
-        };
+        let instance = Configuration(Set::new());
+        instance.write(configuration_path);
         instance
       }
+    }
+  }
+
+  fn write(&self, configuration_path: PathBuf) {
+    match (File::create(&configuration_path), to_string_pretty(&self)) {
+      (Ok(mut file), Ok(json)) => {
+        match file.write_all(json.as_bytes()) {
+          Ok(_) => println!(
+            "Configuration file has been {} at {:?}",
+            if self.0.is_empty() {
+              "created"
+            } else {
+              "updated"
+            },
+            configuration_path
+          ),
+          Err(e) => unreachable!(e),
+        };
+      }
+      (e1, e2) => unreachable!(format!("{:?}\n{:?}", e1, e2)),
+    };
+  }
+
+  pub fn add(&mut self, pair: (PathBuf, PathBuf)) {
+    let (a, b) = pair;
+    match (read_dir(&a), read_dir(&b)) {
+      (Ok(_), Ok(_)) => {
+        self.0 = self.0.insert((a, b));
+        let configuration_path = Self::configuration_path();
+        self.write(configuration_path);
+      }
+      (e1, e2) => unreachable!(format!("{:?}\n{:?}", e1, e2)),
     }
   }
 }
