@@ -34,10 +34,13 @@ impl Package {
   }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Configuration(Set<(PathBuf, PathBuf)>);
+#[derive(Clone)]
+pub struct WatchTargets2(PathBuf);
 
-impl Configuration {
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct WatchTargets(pub Set<(PathBuf, PathBuf)>);
+
+impl WatchTargets {
   fn configuration_path() -> PathBuf {
     env::home_dir()
       .and_then(|p| Some(p.join(".sync-dir.conf")))
@@ -50,10 +53,10 @@ impl Configuration {
       Ok(mut file) => {
         let mut buf = Vec::new();
         let _ = file.read_to_end(&mut buf);
-        from_slice::<Configuration>(&buf).unwrap()
+        from_slice::<WatchTargets>(&buf).unwrap()
       }
       Err(_) => {
-        let instance = Configuration(Set::new());
+        let instance = WatchTargets(Set::new());
         instance.write(configuration_path);
         instance
       }

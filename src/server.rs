@@ -1,9 +1,10 @@
+use config::WatchTargets;
 use difference::collect_diff;
 use history::History;
-use im::*;
 use libudev::{Context, EventType, Monitor};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::mpsc::Receiver;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -21,9 +22,12 @@ pub fn sync(dir_a: String, dir_b: String) {
     diff_b.iter().for_each(|diff| diff.sync_file());
 }
 
-pub fn listen(dir_listener: Receiver<ConsList<(PathBuf, PathBuf)>>) {
+pub fn listen(
+    dir_listener: Receiver<Arc<Mutex<WatchTargets>>> // initial_watch_targets: WatchTargets
+) {
     let context = Context::new().unwrap();
     let throttle = Duration::from_millis(10);
+    let mut watch_targets = dir_listener.recv().unwrap();
     let mut monitor = Monitor::new(&context).unwrap();
     println!("Start listening...");
 
@@ -33,12 +37,9 @@ pub fn listen(dir_listener: Receiver<ConsList<(PathBuf, PathBuf)>>) {
     let mut socket = monitor.listen().unwrap();
 
     loop {
-        match dir_listener.recv_timeout(throttle) {
-            Ok(directories) => {
-                println!("{:?}", directories);
-                break;
-            }
-            _ => {}
+        watch_targets = match dir_listener.recv_timeout(throttle) {
+            Ok(x) => x,
+            _ => watch_targets,
         };
         let event = match socket.receive_event() {
             Some(evt) => evt,
@@ -49,8 +50,9 @@ pub fn listen(dir_listener: Receiver<ConsList<(PathBuf, PathBuf)>>) {
         };
         match event.event_type() {
             EventType::Add => {
-                println!("Syncing...");
-                sync("fixture/a".to_owned(), "fixture/b".to_owned());
+                // TODO: Check whether devices includes path defined in directories.
+                println!("Syncing...{:?}", watch_targets);
+                // sync("fixture/a".to_owned(), "fixture/b".to_owned());
                 println!("Synchronounced");
             }
             // NOTE: It might be better to consider whether to handle a case when a user reject some device while syncing directories

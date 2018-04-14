@@ -19,6 +19,7 @@ use clap::{App, Arg};
 use im::*;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::channel;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -28,18 +29,24 @@ mod history;
 mod server;
 
 fn main() {
-    let (sender, receiver) = channel::<ConsList<(PathBuf, PathBuf)>>();
-    let promise = thread::spawn(move || {
+    let (sender, receiver) = channel();
+    let watch_targets = Arc::new(Mutex::new(config::WatchTargets::new()));
+    let promise = thread::spawn(|| {
         server::listen(receiver);
     });
-    let _ = sender
-        .send(ConsList::new().cons((Path::new("a").to_path_buf(), Path::new("b").to_path_buf())));
+    let _ = sender.send(watch_targets.clone());
+
+    watch_targets.lock().unwrap().add((
+        Path::new("fixture/a").to_path_buf(),
+        Path::new("fixture/b").to_path_buf(),
+    ));
+    let _ = sender.send(watch_targets.clone());
 
     let _ = promise.join();
     println!("Server will terminate");
 
     /*
-    let (name, version) = config::Config::get_config();
+    let (name, version) = config::Package::get_config();
 
     let matches = App::new(name)
         .version(version.as_ref())
