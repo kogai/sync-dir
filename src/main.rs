@@ -16,12 +16,10 @@ extern crate libudev;
 extern crate toml;
 
 use clap::{App, Arg};
-use im::*;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
 
 mod config;
 mod difference;
@@ -29,6 +27,7 @@ mod history;
 mod server;
 
 fn main() {
+    // Initialize server
     let (sender, receiver) = channel();
     let watch_targets = Arc::new(Mutex::new(config::WatchTargets::new()));
     let promise = thread::spawn(|| {
@@ -36,18 +35,8 @@ fn main() {
     });
     let _ = sender.send(watch_targets.clone());
 
-    watch_targets.lock().unwrap().add((
-        Path::new("fixture/a").to_path_buf(),
-        Path::new("fixture/b").to_path_buf(),
-    ));
-    let _ = sender.send(watch_targets.clone());
-
-    let _ = promise.join();
-    println!("Server will terminate");
-
-    /*
+    // Setup CLI
     let (name, version) = config::Package::get_config();
-
     let matches = App::new(name)
         .version(version.as_ref())
         .about("Synchronize directories bidirectional")
@@ -67,20 +56,13 @@ fn main() {
 
     let dir_a = value_t!(matches.value_of("dir_a"), String).unwrap();
     let dir_b = value_t!(matches.value_of("dir_b"), String).unwrap();
-    println!("Directories {:?} {:?}", &dir_a, &dir_b);
 
-    let a_path = Path::new(&dir_a).to_owned();
-    let b_path = Path::new(&dir_b).to_owned();
-    let a_history = history::History::new(a_path);
-    let b_history = history::History::new(b_path);
-    println!("{:?}", a_history);
-    println!("{:?}", b_history);
+    watch_targets.lock().unwrap().add((
+        Path::new(&dir_a).to_path_buf(),
+        Path::new(&dir_b).to_path_buf(),
+    ));
+    let _ = sender.send(watch_targets.clone());
 
-    let diff_a = difference::collect_diff(&a_history, &b_history);
-    let diff_b = difference::collect_diff(&b_history, &a_history);
-    println!("{:?}", &diff_a);
-    println!("{:?}", &diff_b);
-    diff_a.iter().for_each(|diff| diff.sync_file());
-    diff_b.iter().for_each(|diff| diff.sync_file());
-    */
+    let _ = promise.join();
+    println!("Server will terminate");
 }

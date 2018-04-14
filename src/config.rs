@@ -83,6 +83,26 @@ impl WatchTargets {
     };
   }
 
+  fn is_pair_available(pair: (&PathBuf, &PathBuf)) -> bool {
+    let (a, b) = pair;
+    match (read_dir(&a), read_dir(&b)) {
+      (Ok(_), Ok(_)) => true,
+      _ => false,
+    }
+  }
+
+  pub fn get_available_directories(&self) -> Set<(PathBuf, PathBuf)> {
+    self
+      .0
+      .iter()
+      .filter(|x| {
+        let a = &x.0;
+        let b = &x.1;
+        Self::is_pair_available((a, b))
+      })
+      .collect()
+  }
+
   pub fn add(&mut self, pair: (PathBuf, PathBuf)) {
     let (a, b) = pair;
     match (read_dir(&a), read_dir(&b)) {

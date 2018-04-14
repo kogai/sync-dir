@@ -2,16 +2,13 @@ use config::WatchTargets;
 use difference::collect_diff;
 use history::History;
 use libudev::{Context, EventType, Monitor};
-use std::path::Path;
+use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-pub fn sync(dir_a: String, dir_b: String) {
-    let a_path = Path::new(&dir_a).to_owned();
-    let b_path = Path::new(&dir_b).to_owned();
-
+pub fn sync(a_path: PathBuf, b_path: PathBuf) {
     let a_history = History::new(a_path);
     let b_history = History::new(b_path);
 
@@ -50,10 +47,14 @@ pub fn listen(
         };
         match event.event_type() {
             EventType::Add => {
-                // TODO: Check whether devices includes path defined in directories.
-                println!("Syncing...{:?}", watch_targets);
-                // sync("fixture/a".to_owned(), "fixture/b".to_owned());
-                println!("Synchronounced");
+                let targets = watch_targets.lock().unwrap().get_available_directories();
+                println!("Syncing...{:?}", targets);
+                targets.iter().for_each(|x| {
+                    let a = &x.0;
+                    let b = &x.1;
+                    sync(a.clone(), b.clone());
+                });
+                println!("All directories synchronized.");
             }
             // NOTE: It might be better to consider whether to handle a case when a user reject some device while syncing directories
             // EventType::Remove => {}
