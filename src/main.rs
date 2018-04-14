@@ -16,7 +16,9 @@ extern crate libudev;
 extern crate toml;
 
 use clap::{App, Arg};
-use std::path::Path;
+use im::*;
+use std::path::{Path, PathBuf};
+use std::sync::mpsc::channel;
 use std::thread;
 use std::time::Duration;
 
@@ -26,7 +28,16 @@ mod history;
 mod server;
 
 fn main() {
-    server::listen();
+    let (sender, receiver) = channel::<ConsList<(PathBuf, PathBuf)>>();
+    let promise = thread::spawn(move || {
+        server::listen(receiver);
+    });
+    let _ = sender
+        .send(ConsList::new().cons((Path::new("a").to_path_buf(), Path::new("b").to_path_buf())));
+
+    let _ = promise.join();
+    println!("Server will terminate");
+
     /*
     let (name, version) = config::Config::get_config();
 
