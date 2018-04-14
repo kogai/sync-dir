@@ -60,6 +60,7 @@ fn main() {
             Path::new(&dir_a).to_path_buf(),
             Path::new(&dir_b).to_path_buf(),
         );
+        std::process::exit(0);
     };
     if matches.is_present("additional") {
         let directories = values_t!(matches.values_of("additional"), String).unwrap();
