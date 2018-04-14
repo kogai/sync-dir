@@ -1,5 +1,3 @@
-#![feature(attr_literals)]
-
 extern crate im;
 extern crate regex;
 extern crate serde;
@@ -8,54 +6,71 @@ extern crate serde_derive;
 extern crate serde_json;
 #[macro_use]
 extern crate clap;
-#[macro_use]
-extern crate rust_embed;
-#[macro_use]
-extern crate log;
+extern crate libudev;
 extern crate toml;
 
 use clap::{App, Arg};
 use std::path::Path;
+use std::sync::mpsc::channel;
+use std::sync::{Arc, Mutex};
+use std::thread;
 
 mod config;
 mod difference;
 mod history;
+mod server;
 
 fn main() {
-    let (name, version) = config::Config::get_config();
+    // Initialize server
+    let (sender, receiver) = channel();
+    let watch_targets = Arc::new(Mutex::new(config::WatchTargets::new()));
+    let promise = thread::spawn(|| {
+        server::listen(receiver);
+    });
+    let _ = sender.send(watch_targets.clone());
 
-    let matches = App::new(name)
-        .version(version.as_ref())
+    // Setup CLI
+    let matches = App::new(crate_name!())
+        .version(crate_version!())
+        .about(crate_authors!())
         .about("Synchronize directories bidirectional")
         .arg(
-            Arg::with_name("dir_a")
-                .help("Set directory [a] you want to synchronize")
-                .index(1)
-                .takes_value(true),
+            Arg::with_name("synchronize")
+                .help("Synchronize directories")
+                .long("synchronize")
+                .short("s")
+                .takes_value(true)
+                .multiple(true),
         )
         .arg(
-            Arg::with_name("dir_b")
-                .help("Set directory [b] you want to synchronize")
-                .index(2)
-                .takes_value(true),
+            Arg::with_name("additional")
+                .help("Add watch target of directories")
+                .long("additional")
+                .short("a")
+                .takes_value(true)
+                .multiple(true),
         )
         .get_matches();
 
-    let dir_a = value_t!(matches.value_of("dir_a"), String).unwrap();
-    let dir_b = value_t!(matches.value_of("dir_b"), String).unwrap();
-    println!("Directories {:?} {:?}", &dir_a, &dir_b);
+    if matches.is_present("synchronize") {
+        let directories = values_t!(matches.values_of("synchronize"), String).unwrap();
+        let dir_a = directories.get(0).unwrap();
+        let dir_b = directories.get(1).unwrap();
+        server::sync(
+            Path::new(&dir_a).to_path_buf(),
+            Path::new(&dir_b).to_path_buf(),
+        );
+    };
+    if matches.is_present("additional") {
+        let directories = values_t!(matches.values_of("additional"), String).unwrap();
+        let dir_a = directories.get(0).unwrap();
+        let dir_b = directories.get(1).unwrap();
+        watch_targets.lock().unwrap().add((
+            Path::new(&dir_a).to_path_buf(),
+            Path::new(&dir_b).to_path_buf(),
+        ));
+        let _ = sender.send(watch_targets.clone());
+    };
 
-    let a_path = Path::new(&dir_a).to_owned();
-    let b_path = Path::new(&dir_b).to_owned();
-    let a_history = history::History::new(a_path);
-    let b_history = history::History::new(b_path);
-    println!("{:?}", a_history);
-    println!("{:?}", b_history);
-
-    let diff_a = difference::collect_diff(&a_history, &b_history);
-    let diff_b = difference::collect_diff(&b_history, &a_history);
-    println!("{:?}", &diff_a);
-    println!("{:?}", &diff_b);
-    diff_a.iter().for_each(|diff| diff.sync_file());
-    diff_b.iter().for_each(|diff| diff.sync_file());
+    let _ = promise.join();
 }
