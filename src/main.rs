@@ -50,6 +50,12 @@ fn main() {
                 .takes_value(true)
                 .multiple(true),
         )
+        .arg(
+            Arg::with_name("watch")
+                .help("Watch targets while change status of devices")
+                .long("watch")
+                .short("w"),
+        )
         .get_matches();
 
     if matches.is_present("synchronize") {
@@ -71,7 +77,9 @@ fn main() {
             Path::new(&dir_b).to_path_buf(),
         ));
         let _ = sender.send(watch_targets.clone());
+        std::process::exit(0);
     };
-
-    let _ = promise.join();
+    if matches.is_present("watch") {
+        let _ = promise.join();
+    };
 }
