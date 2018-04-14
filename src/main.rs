@@ -1,5 +1,3 @@
-#![feature(attr_literals)]
-
 extern crate im;
 extern crate regex;
 extern crate serde;
@@ -8,10 +6,6 @@ extern crate serde_derive;
 extern crate serde_json;
 #[macro_use]
 extern crate clap;
-#[macro_use]
-extern crate rust_embed;
-#[macro_use]
-extern crate log;
 extern crate libudev;
 extern crate toml;
 
@@ -36,33 +30,47 @@ fn main() {
     let _ = sender.send(watch_targets.clone());
 
     // Setup CLI
-    let (name, version) = config::Package::get_config();
-    let matches = App::new(name)
-        .version(version.as_ref())
+    let matches = App::new(crate_name!())
+        .version(crate_version!())
+        .about(crate_authors!())
         .about("Synchronize directories bidirectional")
         .arg(
-            Arg::with_name("dir_a")
-                .help("Set directory [a] you want to synchronize")
-                .index(1)
-                .takes_value(true),
+            Arg::with_name("synchronize")
+                .help("Synchronize directories")
+                .long("synchronize")
+                .short("s")
+                .takes_value(true)
+                .multiple(true),
         )
         .arg(
-            Arg::with_name("dir_b")
-                .help("Set directory [b] you want to synchronize")
-                .index(2)
-                .takes_value(true),
+            Arg::with_name("additional")
+                .help("Add watch target of directories")
+                .long("additional")
+                .short("a")
+                .takes_value(true)
+                .multiple(true),
         )
         .get_matches();
 
-    let dir_a = value_t!(matches.value_of("dir_a"), String).unwrap();
-    let dir_b = value_t!(matches.value_of("dir_b"), String).unwrap();
-
-    watch_targets.lock().unwrap().add((
-        Path::new(&dir_a).to_path_buf(),
-        Path::new(&dir_b).to_path_buf(),
-    ));
-    let _ = sender.send(watch_targets.clone());
+    if matches.is_present("synchronize") {
+        let directories = values_t!(matches.values_of("synchronize"), String).unwrap();
+        let dir_a = directories.get(0).unwrap();
+        let dir_b = directories.get(1).unwrap();
+        server::sync(
+            Path::new(&dir_a).to_path_buf(),
+            Path::new(&dir_b).to_path_buf(),
+        );
+    };
+    if matches.is_present("additional") {
+        let directories = values_t!(matches.values_of("additional"), String).unwrap();
+        let dir_a = directories.get(0).unwrap();
+        let dir_b = directories.get(1).unwrap();
+        watch_targets.lock().unwrap().add((
+            Path::new(&dir_a).to_path_buf(),
+            Path::new(&dir_b).to_path_buf(),
+        ));
+        let _ = sender.send(watch_targets.clone());
+    };
 
     let _ = promise.join();
-    println!("Server will terminate");
 }

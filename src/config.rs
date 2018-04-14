@@ -1,38 +1,9 @@
 use im::*;
 use serde_json::{from_slice, to_string_pretty};
 use std::env;
-use std::fs::read_dir;
-use std::io::Write;
+use std::fs::{read_dir, File};
+use std::io::{Read, Write};
 use std::path::PathBuf;
-use std::str::from_utf8;
-use toml;
-
-#[derive(RustEmbed)]
-#[folder("./")]
-struct Asset;
-
-#[derive(Debug, Deserialize, Serialize)]
-struct PackageConfig {
-  name: String,
-  version: String,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Package {
-  package: PackageConfig,
-}
-
-impl Package {
-  fn new() -> Self {
-    let cargo_toml = Asset::get("Cargo.toml").unwrap();
-    toml::from_str::<Package>(from_utf8(&cargo_toml).unwrap()).unwrap()
-  }
-
-  pub fn get_config() -> (String, String) {
-    let config = Self::new();
-    (config.package.name, config.package.version)
-  }
-}
 
 #[derive(Clone)]
 pub struct WatchTargets2(PathBuf);
