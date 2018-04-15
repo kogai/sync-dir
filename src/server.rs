@@ -15,8 +15,6 @@ pub fn sync(a_path: PathBuf, b_path: PathBuf) {
     let diff_a = Differences::new(&a_history, &b_history);
     let diff_b = Differences::new(&b_history, &a_history);
 
-    // diff_a.iter().for_each(|diff| diff.sync_file());
-    // diff_b.iter().for_each(|diff| diff.sync_file());
     diff_a.merge_with(diff_b).sync_all();
 }
 

@@ -7,7 +7,7 @@ use std::time::Duration;
 use std::sync::mpsc::{channel, Sender};
 use std::io::{stdout, Write};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Difference {
     from: PathBuf,
     to: PathBuf,
@@ -87,9 +87,8 @@ impl Differences {
         let mut handle = stdout.lock();
         let throttle = Duration::from_millis(10);
         loop {
-            match receiver.recv_timeout(throttle) {
-                Ok(_) => completed += 1,
-                _ => {}
+            if let Ok(_) = receiver.recv_timeout(throttle) {
+                completed += 1;
             };
             handle.write(b"\r").unwrap();
             sleep(throttle);
@@ -114,9 +113,89 @@ fn derive_indicator(max: usize, current: usize) -> String {
     )
 }
 
+fn merge_diffs(from: ConsList<Difference>, to: ConsList<Difference>) -> ConsList<Difference> {
+    unimplemented!();
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn test_merge_diffs() {
+        let a = ConsList::new().cons(Difference {
+            from: Path::new("a/1").to_path_buf(),
+            to: Path::new("b/1").to_path_buf(),
+            event: Event::Create(0),
+        });
+        let b = ConsList::new().cons(Difference {
+            from: Path::new("b/2").to_path_buf(),
+            to: Path::new("a/2").to_path_buf(),
+            event: Event::Create(0),
+        });
+
+        assert_eq!(
+            merge_diffs(a, b),
+            ConsList::new()
+                .cons(Difference {
+                    from: Path::new("a/1").to_path_buf(),
+                    to: Path::new("b/1").to_path_buf(),
+                    event: Event::Create(1),
+                })
+                .cons(Difference {
+                    from: Path::new("b/2").to_path_buf(),
+                    to: Path::new("a/2").to_path_buf(),
+                    event: Event::Create(0),
+                })
+        );
+    }
+
+    #[test]
+    fn test_merge_diffs_drop_old_history() {
+        let a = ConsList::new().cons(Difference {
+            from: Path::new("a/1").to_path_buf(),
+            to: Path::new("b/1").to_path_buf(),
+            event: Event::Create(0),
+        });
+        let b = ConsList::new().cons(Difference {
+            from: Path::new("b/1").to_path_buf(),
+            to: Path::new("a/1").to_path_buf(),
+            event: Event::Create(1),
+        });
+
+        assert_eq!(
+            merge_diffs(a, b),
+            ConsList::new().cons(Difference {
+                from: Path::new("b/1").to_path_buf(),
+                to: Path::new("a/1").to_path_buf(),
+                event: Event::Create(1),
+            })
+        );
+    }
+
+    #[test]
+    fn test_merge_diffs_preffer_to_delete() {
+        let a = ConsList::new().cons(Difference {
+            from: Path::new("a/1").to_path_buf(),
+            to: Path::new("b/1").to_path_buf(),
+            event: Event::Delete(0),
+        });
+        let b = ConsList::new().cons(Difference {
+            from: Path::new("b/1").to_path_buf(),
+            to: Path::new("a/1").to_path_buf(),
+            event: Event::Create(1),
+        });
+
+        assert_eq!(
+            merge_diffs(a, b),
+            ConsList::new().cons(Difference {
+                from: Path::new("a/1").to_path_buf(),
+                to: Path::new("b/1").to_path_buf(),
+                event: Event::Delete(0),
+            })
+        );
+    }
 
     #[test]
     fn test_indicator() {
