@@ -89,18 +89,18 @@ impl Differences {
         let progress = "=";
         loop {
             if completed >= max {
+                handle.write(b">\n").unwrap();
                 break;
             };
             match receiver.recv_timeout(throttle) {
                 Ok(_) => completed += 1,
                 _ => {}
             };
+            handle.write(b"\r").unwrap();
+            sleep(throttle);
             handle
                 .write(format!("{}", progress.repeat(completed)).as_bytes())
                 .unwrap();
-            handle.flush().unwrap();
-            sleep(throttle);
-            handle.write(b"\r").unwrap();
         }
         let _ = promise.join();
     }
