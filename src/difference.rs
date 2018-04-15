@@ -1,60 +1,255 @@
 use history::{Event, History};
-use im::ConsList;
+use im::*;
 use std::fs::{copy, create_dir_all, remove_file};
+use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
+use std::thread::{sleep, spawn};
+use std::time::Duration;
+use std::sync::mpsc::{channel, Sender};
+use std::io::{stdout, Write};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Difference {
     from: PathBuf,
     to: PathBuf,
     event: Event,
 }
 
+impl Hash for Difference {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.from.hash(state);
+        self.to.hash(state);
+    }
+}
+
+impl PartialEq for Difference {
+    fn eq(&self, other: &Self) -> bool {
+        self.from == other.from && self.to == other.to
+            || self.from == other.to && self.to == other.from
+    }
+}
+impl Eq for Difference {}
+
 impl Difference {
     fn new(from: PathBuf, to: PathBuf, event: Event) -> Self {
         Difference { from, to, event }
     }
 
-    pub fn sync_file(&self) {
+    pub fn sync_file(&self, sender: &Sender<()>) {
         match &self.event {
             &Event::Delete(_) => {
                 let _ = remove_file(&self.to);
+                let _ = sender.send(());
             }
             _ => {
                 let _ = create_dir_all(self.to.parent().unwrap());
                 let _ = copy(&self.from, &self.to);
+                let _ = sender.send(());
             }
         }
     }
 }
 
-pub fn collect_diff(from: &History, to: &History) -> ConsList<Difference> {
-    from.histories
-        .iter()
-        .fold(ConsList::new(), |acc, (path, history)| {
-            if from.is_history(&path) {
-                return acc;
-            }
-            let mut source_path = from.root.clone();
-            let mut dist_path = to.root.clone();
-            source_path.push(path.as_ref());
-            dist_path.push(path.as_ref());
-            match to.histories.get(&path) {
-                Some(dist_history) => match (history.head(), dist_history.head()) {
-                    (Some(h1), Some(h2)) => {
-                        if h1.get_timestamp() > h2.get_timestamp() {
-                            acc.cons(Difference::new(source_path, dist_path, *h1))
-                        } else {
-                            acc
+pub struct Differences(Set<Difference>);
+
+impl Differences {
+    pub fn new(from: &History, to: &History) -> Self {
+        let list = from.histories
+            .iter()
+            .fold(Set::new(), |acc, (path, history)| {
+                if from.is_history(&path) {
+                    return acc;
+                }
+                let mut source_path = from.root.clone();
+                let mut dist_path = to.root.clone();
+                source_path.push(path.as_ref());
+                dist_path.push(path.as_ref());
+                match to.histories.get(&path) {
+                    Some(dist_history) => match (history.head(), dist_history.head()) {
+                        (Some(h1), Some(h2)) => {
+                            if h1.get_timestamp() > h2.get_timestamp() {
+                                acc.insert(Difference::new(source_path, dist_path, *h1))
+                            } else {
+                                acc
+                            }
                         }
-                    }
-                    (_, _) => unreachable!(),
-                },
-                None => acc.cons(Difference::new(
-                    source_path,
-                    dist_path,
-                    *history.head().unwrap(),
-                )),
-            }
+                        (_, _) => unreachable!(),
+                    },
+                    None => acc.insert(Difference::new(
+                        source_path,
+                        dist_path,
+                        *history.head().unwrap(),
+                    )),
+                }
+            });
+        Differences(list)
+    }
+
+    pub fn merge_with(&self, to: Self) -> Self {
+        let a = &self.0;
+        let b = &to.0;
+        Differences(merge_diffs(a.clone(), b.clone()))
+    }
+
+    pub fn sync_all(&self) {
+        let diffs = self.0.iter();
+        let max = diffs.len();
+        let mut completed = 0;
+        let (sender, receiver) = channel();
+        let promise = spawn(move || diffs.for_each(|diff| diff.sync_file(&sender)));
+
+        let stdout = stdout();
+        let mut handle = stdout.lock();
+        let throttle = Duration::from_millis(10);
+        loop {
+            if let Ok(_) = receiver.recv_timeout(throttle) {
+                completed += 1;
+            };
+            handle.write(b"\r").unwrap();
+            sleep(throttle);
+            handle
+                .write(format!("{}", derive_indicator(max, completed)).as_bytes())
+                .unwrap();
+            if completed >= max {
+                break;
+            };
+        }
+        let _ = promise.join();
+    }
+}
+
+fn derive_indicator(max: usize, current: usize) -> String {
+    let progress = "=";
+    let pst = (current as f32) / (max as f32);
+    format!(
+        "{}{}",
+        progress.repeat((pst * 100.0).round() as usize),
+        if max == current { ">\n" } else { "" }
+    )
+}
+
+fn merge_diffs(a: Set<Difference>, b: Set<Difference>) -> Set<Difference> {
+    fn find(x: &Difference, ys: &Set<Difference>) -> Option<Difference> {
+        ys.iter().fold(
+            None,
+            |acc, y| {
+                if &*y == x {
+                    Some((*y).clone())
+                } else {
+                    acc
+                }
+            },
+        )
+    }
+
+    fn difference(xs: &Set<Difference>, ys: &Set<Difference>) -> Set<Difference> {
+        xs.iter().fold(ys.clone(), |acc, x| match find(&x, ys) {
+            Some(y) => acc.remove(&y),
+            _ => acc,
         })
+    }
+
+    a.iter()
+        .fold(Set::new(), |acc: Set<Difference>, x| match find(&x, &b) {
+            Some(y) => match (x.event, y.event) {
+                (Event::Delete(_), _) => acc.insert(x),
+                (_, Event::Delete(_)) => acc.insert(y),
+                (xe, ye) => {
+                    if xe.get_timestamp() >= ye.get_timestamp() {
+                        acc.insert(x)
+                    } else {
+                        acc.insert(y)
+                    }
+                }
+            },
+            _ => acc.insert(x),
+        })
+        .union(difference(&a, &b))
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn test_merge_diffs_ordinarly() {
+        let a = Set::new().insert(Difference {
+            from: Path::new("a/1").to_path_buf(),
+            to: Path::new("b/1").to_path_buf(),
+            event: Event::Create(0),
+        });
+        let b = Set::new().insert(Difference {
+            from: Path::new("b/2").to_path_buf(),
+            to: Path::new("a/2").to_path_buf(),
+            event: Event::Create(0),
+        });
+
+        assert_eq!(
+            merge_diffs(a, b),
+            Set::new()
+                .insert(Difference {
+                    from: Path::new("a/1").to_path_buf(),
+                    to: Path::new("b/1").to_path_buf(),
+                    event: Event::Create(0),
+                })
+                .insert(Difference {
+                    from: Path::new("b/2").to_path_buf(),
+                    to: Path::new("a/2").to_path_buf(),
+                    event: Event::Create(0),
+                })
+        );
+    }
+
+    #[test]
+    fn test_merge_diffs_drop_old_history() {
+        let a = Set::new().insert(Difference {
+            from: Path::new("a/1").to_path_buf(),
+            to: Path::new("b/1").to_path_buf(),
+            event: Event::Create(0),
+        });
+        let b = Set::new().insert(Difference {
+            from: Path::new("b/1").to_path_buf(),
+            to: Path::new("a/1").to_path_buf(),
+            event: Event::Create(1),
+        });
+
+        assert_eq!(
+            merge_diffs(a, b),
+            Set::new().insert(Difference {
+                from: Path::new("b/1").to_path_buf(),
+                to: Path::new("a/1").to_path_buf(),
+                event: Event::Create(1),
+            })
+        );
+    }
+
+    #[test]
+    fn test_merge_diffs_preffer_to_delete() {
+        let a = Set::new().insert(Difference {
+            from: Path::new("a/1").to_path_buf(),
+            to: Path::new("b/1").to_path_buf(),
+            event: Event::Delete(0),
+        });
+        let b = Set::new().insert(Difference {
+            from: Path::new("b/1").to_path_buf(),
+            to: Path::new("a/1").to_path_buf(),
+            event: Event::Create(1),
+        });
+
+        assert_eq!(
+            merge_diffs(a, b),
+            Set::new().insert(Difference {
+                from: Path::new("a/1").to_path_buf(),
+                to: Path::new("b/1").to_path_buf(),
+                event: Event::Delete(0),
+            })
+        );
+    }
+
+    #[test]
+    fn test_indicator() {
+        assert_eq!(derive_indicator(5, 3), "=".repeat(60).to_owned());
+        assert_eq!(derive_indicator(5, 5), format!("{}>\n", "=".repeat(100)));
+    }
 }

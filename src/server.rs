@@ -1,5 +1,5 @@
 use config::WatchTargets;
-use difference::collect_diff;
+use difference::Differences;
 use history::History;
 use libudev::{Context, EventType, Monitor};
 use std::path::PathBuf;
@@ -12,11 +12,10 @@ pub fn sync(a_path: PathBuf, b_path: PathBuf) {
     let a_history = History::new(a_path);
     let b_history = History::new(b_path);
 
-    let diff_a = collect_diff(&a_history, &b_history);
-    let diff_b = collect_diff(&b_history, &a_history);
+    let diff_a = Differences::new(&a_history, &b_history);
+    let diff_b = Differences::new(&b_history, &a_history);
 
-    diff_a.iter().for_each(|diff| diff.sync_file());
-    diff_b.iter().for_each(|diff| diff.sync_file());
+    diff_a.merge_with(diff_b).sync_all();
 }
 
 pub fn listen(

@@ -26,7 +26,7 @@ fn i32_of_systemtime(x: SystemTime) -> i32 {
   }
 }
 
-#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, PartialEq, Eq)]
 pub enum Event {
   Create(i32),
   Change(i32),
