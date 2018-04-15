@@ -24,10 +24,6 @@ fn main() {
     // Initialize server
     let (sender, receiver) = channel();
     let watch_targets = Arc::new(Mutex::new(config::WatchTargets::new()));
-    let promise = thread::spawn(|| {
-        server::listen(receiver);
-    });
-    let _ = sender.send(watch_targets.clone());
 
     // Setup CLI
     let matches = App::new(crate_name!())
@@ -80,6 +76,10 @@ fn main() {
         std::process::exit(0);
     };
     if matches.is_present("watch") {
+        let promise = thread::spawn(|| {
+            server::listen(receiver);
+        });
+        let _ = sender.send(watch_targets.clone());
         let _ = promise.join();
     };
 }
