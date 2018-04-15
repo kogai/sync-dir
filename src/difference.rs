@@ -86,12 +86,7 @@ impl Differences {
         let stdout = stdout();
         let mut handle = stdout.lock();
         let throttle = Duration::from_millis(10);
-        let progress = "=";
         loop {
-            if completed >= max {
-                handle.write(b">\n").unwrap();
-                break;
-            };
             match receiver.recv_timeout(throttle) {
                 Ok(_) => completed += 1,
                 _ => {}
@@ -99,9 +94,33 @@ impl Differences {
             handle.write(b"\r").unwrap();
             sleep(throttle);
             handle
-                .write(format!("{}", progress.repeat(completed)).as_bytes())
+                .write(format!("{}", derive_indicator(max, completed)).as_bytes())
                 .unwrap();
+            if completed >= max {
+                break;
+            };
         }
         let _ = promise.join();
+    }
+}
+
+fn derive_indicator(max: usize, current: usize) -> String {
+    let progress = "=";
+    let pst = (current as f32) / (max as f32);
+    format!(
+        "{}{}",
+        progress.repeat((pst * 100.0).round() as usize),
+        if max == current { ">\n" } else { "" }
+    )
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_indicator() {
+        assert_eq!(derive_indicator(5, 3), "=".repeat(60).to_owned());
+        assert_eq!(derive_indicator(5, 5), format!("{}>\n", "=".repeat(100)));
     }
 }
