@@ -1,18 +1,34 @@
 use history::{Event, History};
-use im::ConsList;
+use im::*;
 use std::fs::{copy, create_dir_all, remove_file};
+use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::thread::{sleep, spawn};
 use std::time::Duration;
 use std::sync::mpsc::{channel, Sender};
 use std::io::{stdout, Write};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Difference {
     from: PathBuf,
     to: PathBuf,
     event: Event,
 }
+
+impl Hash for Difference {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.from.hash(state);
+        self.to.hash(state);
+    }
+}
+
+impl PartialEq for Difference {
+    fn eq(&self, other: &Self) -> bool {
+        self.from == other.from && self.to == other.to
+            || self.from == other.to && self.to == other.from
+    }
+}
+impl Eq for Difference {}
 
 impl Difference {
     fn new(from: PathBuf, to: PathBuf, event: Event) -> Self {
@@ -34,13 +50,13 @@ impl Difference {
     }
 }
 
-pub struct Differences(ConsList<Difference>);
+pub struct Differences(Set<Difference>);
 
 impl Differences {
     pub fn new(from: &History, to: &History) -> Self {
         let list = from.histories
             .iter()
-            .fold(ConsList::new(), |acc, (path, history)| {
+            .fold(Set::new(), |acc, (path, history)| {
                 if from.is_history(&path) {
                     return acc;
                 }
@@ -52,14 +68,14 @@ impl Differences {
                     Some(dist_history) => match (history.head(), dist_history.head()) {
                         (Some(h1), Some(h2)) => {
                             if h1.get_timestamp() > h2.get_timestamp() {
-                                acc.cons(Difference::new(source_path, dist_path, *h1))
+                                acc.insert(Difference::new(source_path, dist_path, *h1))
                             } else {
                                 acc
                             }
                         }
                         (_, _) => unreachable!(),
                     },
-                    None => acc.cons(Difference::new(
+                    None => acc.insert(Difference::new(
                         source_path,
                         dist_path,
                         *history.head().unwrap(),
@@ -72,8 +88,7 @@ impl Differences {
     pub fn merge_with(&self, to: Self) -> Self {
         let a = &self.0;
         let b = &to.0;
-        a.append(b);
-        Differences(a.append(b))
+        Differences(merge_diffs(a.clone(), b.clone()))
     }
 
     pub fn sync_all(&self) {
@@ -113,8 +128,43 @@ fn derive_indicator(max: usize, current: usize) -> String {
     )
 }
 
-fn merge_diffs(from: ConsList<Difference>, to: ConsList<Difference>) -> ConsList<Difference> {
-    unimplemented!();
+fn merge_diffs(a: Set<Difference>, b: Set<Difference>) -> Set<Difference> {
+    fn find(x: &Difference, ys: &Set<Difference>) -> Option<Difference> {
+        ys.iter().fold(
+            None,
+            |acc, y| {
+                if &*y == x {
+                    Some((*y).clone())
+                } else {
+                    acc
+                }
+            },
+        )
+    }
+
+    fn difference(xs: &Set<Difference>, ys: &Set<Difference>) -> Set<Difference> {
+        xs.iter().fold(ys.clone(), |acc, x| match find(&x, ys) {
+            Some(y) => acc.remove(&y),
+            _ => acc,
+        })
+    }
+
+    a.iter()
+        .fold(Set::new(), |acc: Set<Difference>, x| match find(&x, &b) {
+            Some(y) => match (x.event, y.event) {
+                (Event::Delete(_), _) => acc.insert(x),
+                (_, Event::Delete(_)) => acc.insert(y),
+                (xe, ye) => {
+                    if xe.get_timestamp() >= ye.get_timestamp() {
+                        acc.insert(x)
+                    } else {
+                        acc.insert(y)
+                    }
+                }
+            },
+            _ => acc.insert(x),
+        })
+        .union(difference(&a, &b))
 }
 
 #[cfg(test)]
@@ -123,13 +173,13 @@ mod test {
     use std::path::Path;
 
     #[test]
-    fn test_merge_diffs() {
-        let a = ConsList::new().cons(Difference {
+    fn test_merge_diffs_ordinarly() {
+        let a = Set::new().insert(Difference {
             from: Path::new("a/1").to_path_buf(),
             to: Path::new("b/1").to_path_buf(),
             event: Event::Create(0),
         });
-        let b = ConsList::new().cons(Difference {
+        let b = Set::new().insert(Difference {
             from: Path::new("b/2").to_path_buf(),
             to: Path::new("a/2").to_path_buf(),
             event: Event::Create(0),
@@ -137,13 +187,13 @@ mod test {
 
         assert_eq!(
             merge_diffs(a, b),
-            ConsList::new()
-                .cons(Difference {
+            Set::new()
+                .insert(Difference {
                     from: Path::new("a/1").to_path_buf(),
                     to: Path::new("b/1").to_path_buf(),
-                    event: Event::Create(1),
+                    event: Event::Create(0),
                 })
-                .cons(Difference {
+                .insert(Difference {
                     from: Path::new("b/2").to_path_buf(),
                     to: Path::new("a/2").to_path_buf(),
                     event: Event::Create(0),
@@ -153,12 +203,12 @@ mod test {
 
     #[test]
     fn test_merge_diffs_drop_old_history() {
-        let a = ConsList::new().cons(Difference {
+        let a = Set::new().insert(Difference {
             from: Path::new("a/1").to_path_buf(),
             to: Path::new("b/1").to_path_buf(),
             event: Event::Create(0),
         });
-        let b = ConsList::new().cons(Difference {
+        let b = Set::new().insert(Difference {
             from: Path::new("b/1").to_path_buf(),
             to: Path::new("a/1").to_path_buf(),
             event: Event::Create(1),
@@ -166,7 +216,7 @@ mod test {
 
         assert_eq!(
             merge_diffs(a, b),
-            ConsList::new().cons(Difference {
+            Set::new().insert(Difference {
                 from: Path::new("b/1").to_path_buf(),
                 to: Path::new("a/1").to_path_buf(),
                 event: Event::Create(1),
@@ -176,12 +226,12 @@ mod test {
 
     #[test]
     fn test_merge_diffs_preffer_to_delete() {
-        let a = ConsList::new().cons(Difference {
+        let a = Set::new().insert(Difference {
             from: Path::new("a/1").to_path_buf(),
             to: Path::new("b/1").to_path_buf(),
             event: Event::Delete(0),
         });
-        let b = ConsList::new().cons(Difference {
+        let b = Set::new().insert(Difference {
             from: Path::new("b/1").to_path_buf(),
             to: Path::new("a/1").to_path_buf(),
             event: Event::Create(1),
@@ -189,7 +239,7 @@ mod test {
 
         assert_eq!(
             merge_diffs(a, b),
-            ConsList::new().cons(Difference {
+            Set::new().insert(Difference {
                 from: Path::new("a/1").to_path_buf(),
                 to: Path::new("b/1").to_path_buf(),
                 event: Event::Delete(0),
