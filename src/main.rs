@@ -21,10 +21,6 @@ mod history;
 mod server;
 
 fn main() {
-    // Initialize server
-    let (sender, receiver) = channel();
-    let watch_targets = Arc::new(Mutex::new(config::WatchTargets::new()));
-
     // Setup CLI
     let matches = App::new(crate_name!())
         .version(crate_version!())
@@ -53,6 +49,10 @@ fn main() {
                 .short("w"),
         )
         .get_matches();
+
+    // Initialize server
+    let (sender, receiver) = channel();
+    let watch_targets = Arc::new(Mutex::new(config::WatchTargets::new()));
 
     if matches.is_present("synchronize") {
         let directories = values_t!(matches.values_of("synchronize"), String).unwrap();

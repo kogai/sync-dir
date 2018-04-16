@@ -169,9 +169,6 @@ mod test {
     use std::path::Path;
 
     #[test]
-    fn test_new() {}
-
-    #[test]
     fn test_merge_diffs_ordinarly() {
         let a = Set::new().insert(Difference {
             from: Path::new("a/1").to_path_buf(),

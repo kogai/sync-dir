@@ -13,3 +13,7 @@ clap = "2.31.2"
 log = "0.4"
 toml = "0.4"
 libudev = "0.2"
+
+[features]
+default = []
+debug = []

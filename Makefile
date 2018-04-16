@@ -9,7 +9,7 @@ bin/$(NAME): Cargo.toml $(SRC)
 
 .PHONY: run
 run: init
-	cargo build --release
+	cargo build --release --features debug
 	find fixture > fixture.text
 	$(BIN) -s ./fixture/a ./fixture/b
 	cat fixture/b/1.file # expect => do not overwrite
@@ -48,5 +48,5 @@ init: clean
 
 .PHONY: clean
 clean:
-	rm -f ~/.sync-dir.conf
+	rm -f ./.sync-dir.conf
 	rm -rf fixture

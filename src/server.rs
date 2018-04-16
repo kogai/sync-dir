@@ -18,9 +18,13 @@ pub fn sync(a_path: PathBuf, b_path: PathBuf) {
     diff_a.merge_with(diff_b).sync_all();
 }
 
-pub fn listen(
-    dir_listener: Receiver<Arc<Mutex<WatchTargets>>> // initial_watch_targets: WatchTargets
-) {
+#[cfg(not(target_os = "linux"))]
+pub fn listen(dir_listener: Receiver<Arc<Mutex<WatchTargets>>>) {
+    unimplemented!("Do not support to watch USB devices yet for this OS.");
+}
+
+#[cfg(target_os = "linux")]
+pub fn listen(dir_listener: Receiver<Arc<Mutex<WatchTargets>>>) {
     let context = Context::new().unwrap();
     let throttle = Duration::from_millis(10);
     let mut watch_targets = dir_listener.recv().unwrap();
