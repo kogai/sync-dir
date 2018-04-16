@@ -1,6 +1,6 @@
 use im::*;
 use serde_json::{from_slice, to_string_pretty};
-use std::env;
+use std;
 use std::fs::{read_dir, File};
 use std::io::{Read, Write};
 use std::path::PathBuf;
@@ -12,10 +12,17 @@ pub struct WatchTargets2(PathBuf);
 pub struct WatchTargets(pub Set<(PathBuf, PathBuf)>);
 
 impl WatchTargets {
+  // TODO: Consider how to avoid warning by using modules either feature=debug or not.
+  #[cfg(not(feature = "debug"))]
   fn configuration_path() -> PathBuf {
-    env::home_dir()
+    std::env::home_dir()
       .and_then(|p| Some(p.join(".sync-dir.conf")))
       .unwrap()
+  }
+
+  #[cfg(feature = "debug")]
+  fn configuration_path() -> PathBuf {
+    std::path::Path::new(".sync-dir.conf").to_owned()
   }
 
   pub fn new() -> Self {

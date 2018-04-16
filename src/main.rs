@@ -21,10 +21,6 @@ mod history;
 mod server;
 
 fn main() {
-    // Initialize server
-    let (sender, receiver) = channel();
-    let watch_targets = Arc::new(Mutex::new(config::WatchTargets::new()));
-
     // Setup CLI
     let matches = App::new(crate_name!())
         .version(crate_version!())
@@ -54,13 +50,17 @@ fn main() {
         )
         .get_matches();
 
+    // Initialize server
+    let (sender, receiver) = channel();
+    let watch_targets = Arc::new(Mutex::new(config::WatchTargets::new()));
+
     if matches.is_present("synchronize") {
         let directories = values_t!(matches.values_of("synchronize"), String).unwrap();
         let dir_a = directories.get(0).unwrap();
         let dir_b = directories.get(1).unwrap();
         server::sync(
-            Path::new(&dir_a).to_path_buf(),
-            Path::new(&dir_b).to_path_buf(),
+            Path::new(&dir_a).to_path_buf().canonicalize().unwrap(),
+            Path::new(&dir_b).to_path_buf().canonicalize().unwrap(),
         );
         std::process::exit(0);
     };
@@ -69,8 +69,8 @@ fn main() {
         let dir_a = directories.get(0).unwrap();
         let dir_b = directories.get(1).unwrap();
         watch_targets.lock().unwrap().add((
-            Path::new(&dir_a).to_path_buf(),
-            Path::new(&dir_b).to_path_buf(),
+            Path::new(&dir_a).to_path_buf().canonicalize().unwrap(),
+            Path::new(&dir_b).to_path_buf().canonicalize().unwrap(),
         ));
         let _ = sender.send(watch_targets.clone());
         std::process::exit(0);

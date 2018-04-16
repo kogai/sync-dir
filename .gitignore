@@ -5,3 +5,4 @@ fixture
 !bin/.keep
 bin
 sandbox
+.sync-dir.conf
