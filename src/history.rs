@@ -59,10 +59,10 @@ impl History {
     history_path
   }
 
-  pub fn is_history(&self, p: &PathBuf) -> bool {
-    let mut path = Path::new(&self.root).to_path_buf();
-    path.push(p);
-    Self::history_path(&self.root) == path
+  pub fn replace_with(from: &PathBuf, from_root: &PathBuf, to_root: &PathBuf) -> PathBuf {
+    let mut dist = to_root.clone();
+    dist.push(from.strip_prefix(from_root).unwrap());
+    dist
   }
 
   pub fn new(root: PathBuf) -> Self {

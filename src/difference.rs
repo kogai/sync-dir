@@ -50,6 +50,7 @@ impl Difference {
     }
 }
 
+#[derive(Debug)]
 pub struct Differences(Set<Difference>);
 
 impl Differences {
@@ -57,14 +58,9 @@ impl Differences {
         let list = from.histories
             .iter()
             .fold(Set::new(), |acc, (path, history)| {
-                if from.is_history(&path) {
-                    return acc;
-                }
-                let mut source_path = from.root.clone();
-                let mut dist_path = to.root.clone();
-                source_path.push(path.as_ref());
-                dist_path.push(path.as_ref());
-                match to.histories.get(&path) {
+                let source_path = path.to_path_buf();
+                let dist_path = History::replace_with(&path, &from.root, &to.root);
+                match to.histories.get(&dist_path) {
                     Some(dist_history) => match (history.head(), dist_history.head()) {
                         (Some(h1), Some(h2)) => {
                             if h1.get_timestamp() > h2.get_timestamp() {
@@ -171,6 +167,9 @@ fn merge_diffs(a: Set<Difference>, b: Set<Difference>) -> Set<Difference> {
 mod test {
     use super::*;
     use std::path::Path;
+
+    #[test]
+    fn test_new() {}
 
     #[test]
     fn test_merge_diffs_ordinarly() {
