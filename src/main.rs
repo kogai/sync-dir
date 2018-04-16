@@ -59,8 +59,8 @@ fn main() {
         let dir_a = directories.get(0).unwrap();
         let dir_b = directories.get(1).unwrap();
         server::sync(
-            Path::new(&dir_a).to_path_buf(),
-            Path::new(&dir_b).to_path_buf(),
+            Path::new(&dir_a).to_path_buf().canonicalize().unwrap(),
+            Path::new(&dir_b).to_path_buf().canonicalize().unwrap(),
         );
         std::process::exit(0);
     };
@@ -69,8 +69,8 @@ fn main() {
         let dir_a = directories.get(0).unwrap();
         let dir_b = directories.get(1).unwrap();
         watch_targets.lock().unwrap().add((
-            Path::new(&dir_a).to_path_buf(),
-            Path::new(&dir_b).to_path_buf(),
+            Path::new(&dir_a).to_path_buf().canonicalize().unwrap(),
+            Path::new(&dir_b).to_path_buf().canonicalize().unwrap(),
         ));
         let _ = sender.send(watch_targets.clone());
         std::process::exit(0);

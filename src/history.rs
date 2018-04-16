@@ -72,11 +72,8 @@ impl History {
         match file.read_to_end(&mut json_buf) {
           Ok(_) => match serde_json::from_slice::<HashMap<PathBuf, ConsList<Event>>>(&json_buf) {
             Ok(old_histories) => {
-              let new_histories = History::generate_history(
-                root.clone(),
-                None,
-                &Dawn::HasHistory(old_histories.clone()),
-              );
+              let new_histories =
+                History::generate_history(root.clone(), &Dawn::HasHistory(old_histories.clone()));
               // TODO: Handle case which always update .history.json
               old_histories.iter().fold(new_histories, |ns, old_history| {
                 let key = old_history.clone().0;
@@ -98,31 +95,23 @@ impl History {
             }
             Err(e) => {
               println!("JSON of history file can't parse normaly.\n{:?}", e);
-              History::generate_history(root.clone(), None, &Dawn::PreHistory)
+              History::generate_history(root.clone(), &Dawn::PreHistory)
             }
           },
           Err(e) => {
             println!("History file can't read normaly.\n{:?}", e);
-            History::generate_history(root.clone(), None, &Dawn::PreHistory)
+            History::generate_history(root.clone(), &Dawn::PreHistory)
           }
         }
       }
-      Err(_) => History::generate_history(root.clone(), None, &Dawn::PreHistory),
+      Err(_) => History::generate_history(root.clone(), &Dawn::PreHistory),
     };
     let instance = History { root, histories };
     instance.write();
     instance
   }
 
-  fn generate_history(
-    root_path: PathBuf,
-    current_path: Option<PathBuf>,
-    has_history: &Dawn,
-  ) -> HashMap<PathBuf, ConsList<Event>> {
-    let strip_path = match current_path {
-      Some(path) => path,
-      None => root_path.clone(),
-    };
+  fn generate_history(root_path: PathBuf, has_history: &Dawn) -> HashMap<PathBuf, ConsList<Event>> {
     match read_dir(&root_path) {
       Ok(entries) => entries
         .fold(
@@ -134,10 +123,7 @@ impl History {
             let modified = try!(metadata.modified());
             let acc = try!(acc);
             let key_with_root = dir_entry.path();
-            let key = key_with_root
-              .strip_prefix(&strip_path)
-              .unwrap()
-              .to_path_buf();
+            let key = dir_entry.path().canonicalize().unwrap();
             let history_of_file = match *has_history {
               Dawn::PreHistory => ConsList::new().cons(Event::Create(i32_of_systemtime(modified))),
               Dawn::HasHistory(ref history) => match history.get(&key) {
@@ -154,12 +140,8 @@ impl History {
               },
             };
             if file_type.is_dir() {
-              Ok(acc.union(&History::generate_history(
-                key_with_root,
-                Some(root_path.clone()),
-                has_history,
-              )))
-            } else if &key.to_string_lossy() == ".history.json" {
+              Ok(acc.union(&History::generate_history(key_with_root, has_history)))
+            } else if key.ends_with(".history.json") {
               Ok(acc)
             } else {
               Ok(acc.insert(key, history_of_file))
