@@ -82,4 +82,5 @@ fn main() {
         let _ = sender.send(watch_targets.clone());
         let _ = promise.join();
     };
+    // TODO: If it doesn't present any options, the tool sync all directories saved at .conf file
 }
