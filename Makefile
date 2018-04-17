@@ -7,8 +7,8 @@ bin/$(NAME): Cargo.toml $(SRC)
 	docker run --rm -v `pwd`/target:/app/target -t $(NAME)
 	cp target/release/$(NAME) bin/$(NAME)
 
-.PHONY: run
-run: init
+.PHONY: test
+test: init
 	cargo build --release --features debug
 	find fixture > fixture.text
 	$(BIN) -s ./fixture/a ./fixture/b
