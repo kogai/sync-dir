@@ -61,7 +61,10 @@ impl History {
 
   pub fn replace_with(from: &PathBuf, from_root: &PathBuf, to_root: &PathBuf) -> PathBuf {
     let mut dist = to_root.clone();
-    dist.push(from.strip_prefix(from_root).unwrap());
+    match from.strip_prefix(from_root) {
+      Ok(path) => dist.push(path),
+      Err(e) => unreachable!("{:?}", e),
+    };
     dist
   }
 

@@ -1,7 +1,7 @@
 use config::WatchTargets;
 use difference::Differences;
 use history::History;
-use libudev::{Context, EventType, Monitor};
+use libusb::Context;
 use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
@@ -18,37 +18,37 @@ pub fn sync(a_path: PathBuf, b_path: PathBuf) {
     diff_a.merge_with(diff_b).sync_all();
 }
 
-#[cfg(not(target_os = "linux"))]
-pub fn listen(dir_listener: Receiver<Arc<Mutex<WatchTargets>>>) {
-    unimplemented!("Do not support to watch USB devices yet for this OS.");
+enum EventType {
+    Add,
+    Remove,
+    Stay,
 }
 
-#[cfg(target_os = "linux")]
 pub fn listen(dir_listener: Receiver<Arc<Mutex<WatchTargets>>>) {
     let context = Context::new().unwrap();
     let throttle = Duration::from_millis(10);
     let mut watch_targets = dir_listener.recv().unwrap();
-    let mut monitor = Monitor::new(&context).unwrap();
+    let mut current_devices = 0;
     println!("Start listening...");
-
-    // TODO: Examine whether possible to mount device via bluetooth
-    let _ = monitor.match_subsystem_devtype("bluetooth", "link");
-    let _ = monitor.match_subsystem_devtype("usb", "usb_device");
-    let mut socket = monitor.listen().unwrap();
 
     loop {
         watch_targets = match dir_listener.recv_timeout(throttle) {
             Ok(x) => x,
             _ => watch_targets,
         };
-        let event = match socket.receive_event() {
-            Some(evt) => evt,
-            None => {
+
+        let next_devices = context.devices().unwrap().iter().count();
+        let event_type = match (current_devices, next_devices) {
+            (c, n) if c < n => EventType::Add,
+            (c, n) if c > n => EventType::Remove,
+            _ => EventType::Stay,
+        };
+        current_devices = next_devices;
+        match event_type {
+            EventType::Stay | EventType::Remove => {
                 thread::sleep(throttle);
                 continue;
             }
-        };
-        match event.event_type() {
             EventType::Add => {
                 let targets = watch_targets.lock().unwrap().get_available_directories();
                 println!("Syncing...{:?}", targets);
@@ -59,11 +59,6 @@ pub fn listen(dir_listener: Receiver<Arc<Mutex<WatchTargets>>>) {
                 });
                 println!("All directories synchronized.");
             }
-            // NOTE: It might be better to consider whether to handle a case when a user reject some device while syncing directories
-            // EventType::Remove => {}
-            x => {
-                println!("Event::{}", x);
-            }
-        };
+        }
     }
 }

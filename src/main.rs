@@ -6,7 +6,7 @@ extern crate serde_derive;
 extern crate serde_json;
 #[macro_use]
 extern crate clap;
-extern crate libudev;
+extern crate libusb;
 extern crate toml;
 
 use clap::{App, Arg};

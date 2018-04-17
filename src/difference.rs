@@ -2,7 +2,7 @@ use history::{Event, History};
 use im::*;
 use std::fs::{copy, create_dir_all, remove_file};
 use std::hash::{Hash, Hasher};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::thread::{sleep, spawn};
 use std::time::Duration;
 use std::sync::mpsc::{channel, Sender};
@@ -35,16 +35,17 @@ impl Difference {
         Difference { from, to, event }
     }
 
-    pub fn sync_file(&self, sender: &Sender<()>) {
+    pub fn sync_file(&self, sender: &Sender<PathBuf>) {
+        let filename = &self.to.file_name().unwrap();
         match &self.event {
             &Event::Delete(_) => {
                 let _ = remove_file(&self.to);
-                let _ = sender.send(());
+                let _ = sender.send(Path::new(filename).to_owned());
             }
             _ => {
                 let _ = create_dir_all(self.to.parent().unwrap());
                 let _ = copy(&self.from, &self.to);
-                let _ = sender.send(());
+                let _ = sender.send(Path::new(filename).to_owned());
             }
         }
     }
@@ -98,13 +99,17 @@ impl Differences {
         let mut handle = stdout.lock();
         let throttle = Duration::from_millis(10);
         loop {
-            if let Ok(_) = receiver.recv_timeout(throttle) {
-                completed += 1;
+            let file_name = match receiver.recv_timeout(throttle) {
+                Ok(file_name) => {
+                    completed += 1;
+                    Some(file_name)
+                }
+                Err(_) => None,
             };
             handle.write(b"\r").unwrap();
             sleep(throttle);
             handle
-                .write(format!("{}", derive_indicator(max, completed)).as_bytes())
+                .write(format!("{}", derive_indicator(max, completed, file_name)).as_bytes())
                 .unwrap();
             if completed >= max {
                 break;
@@ -114,13 +119,25 @@ impl Differences {
     }
 }
 
-fn derive_indicator(max: usize, current: usize) -> String {
+fn derive_indicator(max: usize, current: usize, file_name: Option<PathBuf>) -> String {
     let progress = "=";
+    let pad = " ";
     let pst = (current as f32) / (max as f32);
     format!(
-        "{}{}",
-        progress.repeat((pst * 100.0).round() as usize),
-        if max == current { ">\n" } else { "" }
+        "[{}]{}>{}[{}{}%]{}",
+        match file_name {
+            Some(ref file) => file.to_str().unwrap(),
+            _ => "",
+        }.to_owned(),
+        progress.repeat((pst * 50.0).round() as usize),
+        pad.repeat(((1.0 - pst) * 50.0).round() as usize),
+        match pst {
+            p if p == 1.0 => "",
+            p if p < 0.1 => "  ",
+            _ => " ",
+        },
+        (pst * 100.0).round(),
+        if max == current { "\n" } else { "" }
     )
 }
 
@@ -245,7 +262,14 @@ mod test {
 
     #[test]
     fn test_indicator() {
-        assert_eq!(derive_indicator(5, 3), "=".repeat(60).to_owned());
-        assert_eq!(derive_indicator(5, 5), format!("{}>\n", "=".repeat(100)));
+        let file_name = Some(Path::new("foo.file").to_path_buf());
+        assert_eq!(
+            derive_indicator(5, 3, file_name.to_owned()),
+            format!("[foo.file]{}>{}[ 60%]", "=".repeat(30), " ".repeat(20))
+        );
+        assert_eq!(
+            derive_indicator(5, 5, file_name.to_owned()),
+            format!("[foo.file]{}>[100%]\n", "=".repeat(50)) // format!("{}>\n", "=".repeat(100))
+        );
     }
 }
