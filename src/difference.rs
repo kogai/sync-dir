@@ -119,22 +119,16 @@ impl Differences {
     }
 }
 
-fn leftpad(file_name: Option<PathBuf>) -> String {
-    let file_name = match file_name {
-        Some(ref file) => file.to_str().unwrap(),
-        _ => "",
-    }.to_owned();
-    let len = file_name.len();
-    format!("{}{}", file_name, " ".repeat(10 - len))
-}
-
 fn derive_indicator(max: usize, current: usize, file_name: Option<PathBuf>) -> String {
     let progress = "=";
     let pad = " ";
     let pst = (current as f32) / (max as f32);
     format!(
         "[{}]{}>{}[{}{}%]{}",
-        leftpad(file_name),
+        match file_name {
+            Some(ref file) => file.to_str().unwrap(),
+            _ => "",
+        }.to_owned(),
         progress.repeat((pst * 50.0).round() as usize),
         pad.repeat(((1.0 - pst) * 50.0).round() as usize),
         match pst {
@@ -271,11 +265,11 @@ mod test {
         let file_name = Some(Path::new("foo.file").to_path_buf());
         assert_eq!(
             derive_indicator(5, 3, file_name.to_owned()),
-            format!("[foo.file  ]{}>{}[ 60%]", "=".repeat(30), " ".repeat(20))
+            format!("[foo.file]{}>{}[ 60%]", "=".repeat(30), " ".repeat(20))
         );
         assert_eq!(
             derive_indicator(5, 5, file_name.to_owned()),
-            format!("[foo.file  ]{}>[100%]\n", "=".repeat(50)) // format!("{}>\n", "=".repeat(100))
+            format!("[foo.file]{}>[100%]\n", "=".repeat(50)) // format!("{}>\n", "=".repeat(100))
         );
     }
 }
