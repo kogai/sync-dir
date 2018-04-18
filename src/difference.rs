@@ -1,5 +1,6 @@
 use history::{Event, History};
 use im::*;
+use termion;
 use std::fs::{copy, create_dir_all, remove_file};
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
@@ -95,8 +96,7 @@ impl Differences {
         let (sender, receiver) = channel();
         let promise = spawn(move || diffs.for_each(|diff| diff.sync_file(&sender)));
 
-        let stdout = stdout();
-        let mut handle = stdout.lock();
+        let mut stdout = stdout();
         let throttle = Duration::from_millis(10);
         loop {
             let file_name = match receiver.recv_timeout(throttle) {
@@ -106,11 +106,9 @@ impl Differences {
                 }
                 Err(_) => None,
             };
-            handle.write(b"\r").unwrap();
+            write!(stdout, "{}\r", termion::clear::CurrentLine).unwrap();
             sleep(throttle);
-            handle
-                .write(format!("{}", derive_indicator(max, completed, file_name)).as_bytes())
-                .unwrap();
+            write!(stdout, "{}", derive_indicator(max, completed, file_name)).unwrap();
             if completed >= max {
                 break;
             };

@@ -7,6 +7,7 @@ extern crate serde_json;
 #[macro_use]
 extern crate clap;
 extern crate libusb;
+extern crate termion;
 extern crate toml;
 
 use clap::{App, Arg};
