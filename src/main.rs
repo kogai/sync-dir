@@ -11,10 +11,12 @@ extern crate termion;
 extern crate toml;
 
 use clap::{App, Arg};
+use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::io::Write;
 
 mod config;
 mod difference;
@@ -53,7 +55,8 @@ fn main() {
 
     // Initialize server
     let (sender, receiver) = channel();
-    let watch_targets = Arc::new(Mutex::new(config::WatchTargets::new()));
+    // let watch_targets = Arc::new(Mutex::new(config::WatchTargets::new()));
+    let mut watch_targets = config::WatchTargets::new();
 
     if matches.is_present("synchronize") {
         let directories = values_t!(matches.values_of("synchronize"), String).unwrap();
@@ -69,18 +72,25 @@ fn main() {
         let directories = values_t!(matches.values_of("additional"), String).unwrap();
         let dir_a = directories.get(0).unwrap();
         let dir_b = directories.get(1).unwrap();
-        watch_targets.lock().unwrap().add((
+        watch_targets.add((
             Path::new(&dir_a).to_path_buf().canonicalize().unwrap(),
             Path::new(&dir_b).to_path_buf().canonicalize().unwrap(),
         ));
-        let _ = sender.send(watch_targets.clone());
+        // let _ = sender.send(watch_targets.clone());
+        let mut client = match UnixStream::connect(server::SOCKET_ADDR) {
+            Ok(socket) => socket,
+            Err(e) => unreachable!("UnixStream Error!\n{:?}", e),
+        };
+        let payload = serde_json::to_vec(&server::Command::Add(watch_targets)).unwrap();
+        let _ = client.write_all(payload.as_slice());
         std::process::exit(0);
     };
     if matches.is_present("watch") {
         let promise = thread::spawn(|| {
             server::listen(receiver);
         });
-        let _ = sender.send(watch_targets.clone());
+        // let _ = client.write_all(serde_json::to_string(&watch_targets).unwrap().as_bytes());
+        // let _ = sender.send(watch_targets.clone());
         let _ = promise.join();
     };
     // TODO: If it doesn't present any options, the tool sync all directories saved at .conf file
