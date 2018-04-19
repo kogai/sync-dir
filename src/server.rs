@@ -36,7 +36,7 @@ pub enum Command {
     Kill,
 }
 
-pub fn listen(done: Sender<()>) {
+pub fn listen(done: Sender<()>, initial_watch_targets: WatchTargets) {
     remove_file(SOCKET_ADDR).unwrap_or(());
     let (snd, rcv) = channel();
     println!("Start listening...");
@@ -48,29 +48,25 @@ pub fn listen(done: Sender<()>) {
             match stream {
                 Ok(mut stream) => {
                     let cmd = parse_command(&mut stream);
-                    println!("CMD is {:?}", cmd);
                     match cmd {
-                        Command::Kill => {
-                            println!("KILL SERVER");
-                            process::exit(0);
-                        }
+                        Command::Kill => process::exit(0),
                         Command::Add(targets) => {
                             let _ = snd.send(targets);
                         }
-                    }
+                    };
                 }
                 Err(e) => unreachable!("{:?}", e),
             };
         }
     });
 
-    let mut watch_targets = rcv.recv().unwrap();
+    let mut watch_targets = initial_watch_targets;
     let context = Context::new().unwrap();
     let throttle = Duration::from_millis(10);
-    let mut current_devices = 0;
+    let mut current_devices = context.devices().unwrap().iter().count();
     loop {
         watch_targets = match rcv.recv_timeout(throttle) {
-            Ok(x) => x,
+            Ok(targets) => targets,
             _ => watch_targets,
         };
 

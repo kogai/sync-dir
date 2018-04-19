@@ -59,7 +59,6 @@ fn main() {
         .get_matches();
 
     // Initialize server
-    let mut watch_targets = config::WatchTargets::new();
 
     if matches.is_present("synchronize") {
         let directories = values_t!(matches.values_of("synchronize"), String).unwrap();
@@ -69,9 +68,9 @@ fn main() {
             Path::new(&dir_a).to_path_buf().canonicalize().unwrap(),
             Path::new(&dir_b).to_path_buf().canonicalize().unwrap(),
         );
-        std::process::exit(0);
     };
     if matches.is_present("additional") {
+        let mut watch_targets = config::WatchTargets::new();
         let directories = values_t!(matches.values_of("additional"), String).unwrap();
         let dir_a = directories.get(0).unwrap();
         let dir_b = directories.get(1).unwrap();
@@ -85,7 +84,6 @@ fn main() {
         };
         let payload = serde_json::to_vec(&server::Command::Add(watch_targets)).unwrap();
         let _ = client.write_all(payload.as_slice());
-        std::process::exit(0);
     };
     if matches.is_present("kill") {
         let mut client = match UnixStream::connect(server::SOCKET_ADDR) {
@@ -94,20 +92,12 @@ fn main() {
         };
         let payload = serde_json::to_vec(&server::Command::Kill).unwrap();
         let _ = client.write_all(payload.as_slice());
-        std::process::exit(0);
     };
     if matches.is_present("watch") {
+        let watch_targets = config::WatchTargets::new();
         let (snd, rcv) = channel();
-        let promise = thread::spawn(|| {
-            server::listen(snd);
-        });
+        let promise = thread::spawn(move || server::listen(snd, watch_targets.clone()));
         let _ = rcv.recv();
-        let mut client = match UnixStream::connect(server::SOCKET_ADDR) {
-            Ok(socket) => socket,
-            Err(e) => unreachable!("UnixStream Error!\n{:?}", e),
-        };
-        let payload = serde_json::to_vec(&server::Command::Add(watch_targets)).unwrap();
-        let _ = client.write_all(payload.as_slice());
         let _ = promise.join();
     };
     // TODO: If it doesn't present any options, the tool sync all directories saved at .conf file
