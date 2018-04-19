@@ -2,11 +2,17 @@ use config::WatchTargets;
 use difference::Differences;
 use history::History;
 use libusb::Context;
+use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
-use std::sync::mpsc::Receiver;
-use std::sync::{Arc, Mutex};
+use std::sync::mpsc::{channel, Sender};
 use std::thread;
+use std::process;
+use std::fs::remove_file;
+use std::io::Read;
 use std::time::Duration;
+use serde_json;
+
+pub const SOCKET_ADDR: &'static str = "/tmp/sync-dir.sock";
 
 pub fn sync(a_path: PathBuf, b_path: PathBuf) {
     let a_history = History::new(a_path);
@@ -24,16 +30,43 @@ enum EventType {
     Stay,
 }
 
-pub fn listen(dir_listener: Receiver<Arc<Mutex<WatchTargets>>>) {
-    let context = Context::new().unwrap();
-    let throttle = Duration::from_millis(10);
-    let mut watch_targets = dir_listener.recv().unwrap();
-    let mut current_devices = 0;
+#[derive(Debug, Serialize, Deserialize)]
+pub enum Command {
+    Add(WatchTargets),
+    Kill,
+}
+
+pub fn listen(done: Sender<()>, initial_watch_targets: WatchTargets) {
+    remove_file(SOCKET_ADDR).unwrap_or(());
+    let (snd, rcv) = channel();
     println!("Start listening...");
 
+    let _ = thread::spawn(move || {
+        let listener = UnixListener::bind(SOCKET_ADDR).expect("Server process failed to start");
+        let _ = done.send(());
+        for stream in listener.incoming() {
+            match stream {
+                Ok(mut stream) => {
+                    let cmd = parse_command(&mut stream);
+                    match cmd {
+                        Command::Kill => process::exit(0),
+                        Command::Add(targets) => {
+                            let _ = snd.send(targets);
+                        }
+                    };
+                }
+                Err(e) => unreachable!("{:?}", e),
+            };
+        }
+    });
+
+    let mut watch_targets = initial_watch_targets;
+    let context = Context::new().unwrap();
+    let throttle = Duration::from_millis(10);
+    let mut current_devices = context.devices().unwrap().iter().count();
     loop {
-        watch_targets = match dir_listener.recv_timeout(throttle) {
-            Ok(x) => x,
+        watch_targets = match rcv.recv_timeout(throttle) {
+            Ok(targets) => targets,
             _ => watch_targets,
         };
 
@@ -50,7 +83,7 @@ pub fn listen(dir_listener: Receiver<Arc<Mutex<WatchTargets>>>) {
                 continue;
             }
             EventType::Add => {
-                let targets = watch_targets.lock().unwrap().get_available_directories();
+                let targets = watch_targets.get_available_directories();
                 println!("Syncing...{:?}", targets);
                 targets.iter().for_each(|x| {
                     let a = &x.0;
@@ -60,5 +93,14 @@ pub fn listen(dir_listener: Receiver<Arc<Mutex<WatchTargets>>>) {
                 println!("All directories synchronized.");
             }
         }
+    }
+}
+
+fn parse_command(stream: &mut UnixStream) -> Command {
+    let mut buf = Vec::new();
+    let _ = stream.read_to_end(&mut buf);
+    match serde_json::from_slice::<Command>(&buf) {
+        Ok(cmd) => cmd,
+        Err(e) => unreachable!("{:?}", e),
     }
 }

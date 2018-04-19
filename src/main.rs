@@ -11,10 +11,11 @@ extern crate termion;
 extern crate toml;
 
 use clap::{App, Arg};
+use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::sync::mpsc::channel;
-use std::sync::{Arc, Mutex};
 use std::thread;
+use std::io::Write;
 
 mod config;
 mod difference;
@@ -22,7 +23,6 @@ mod history;
 mod server;
 
 fn main() {
-    // Setup CLI
     let matches = App::new(crate_name!())
         .version(crate_version!())
         .about(crate_authors!())
@@ -49,11 +49,13 @@ fn main() {
                 .long("watch")
                 .short("w"),
         )
+        .arg(
+            Arg::with_name("kill")
+                .help("Kill sync-dir daemon")
+                .long("kill")
+                .short("k"),
+        )
         .get_matches();
-
-    // Initialize server
-    let (sender, receiver) = channel();
-    let watch_targets = Arc::new(Mutex::new(config::WatchTargets::new()));
 
     if matches.is_present("synchronize") {
         let directories = values_t!(matches.values_of("synchronize"), String).unwrap();
@@ -63,24 +65,36 @@ fn main() {
             Path::new(&dir_a).to_path_buf().canonicalize().unwrap(),
             Path::new(&dir_b).to_path_buf().canonicalize().unwrap(),
         );
-        std::process::exit(0);
     };
     if matches.is_present("additional") {
+        let mut watch_targets = config::WatchTargets::new();
         let directories = values_t!(matches.values_of("additional"), String).unwrap();
         let dir_a = directories.get(0).unwrap();
         let dir_b = directories.get(1).unwrap();
-        watch_targets.lock().unwrap().add((
+        watch_targets.add((
             Path::new(&dir_a).to_path_buf().canonicalize().unwrap(),
             Path::new(&dir_b).to_path_buf().canonicalize().unwrap(),
         ));
-        let _ = sender.send(watch_targets.clone());
-        std::process::exit(0);
+        let mut client = match UnixStream::connect(server::SOCKET_ADDR) {
+            Ok(socket) => socket,
+            Err(e) => unreachable!("UnixStream Error!\n{:?}", e),
+        };
+        let payload = serde_json::to_vec(&server::Command::Add(watch_targets)).unwrap();
+        let _ = client.write_all(payload.as_slice());
+    };
+    if matches.is_present("kill") {
+        let mut client = match UnixStream::connect(server::SOCKET_ADDR) {
+            Ok(socket) => socket,
+            Err(e) => unreachable!("UnixStream Error!\n{:?}", e),
+        };
+        let payload = serde_json::to_vec(&server::Command::Kill).unwrap();
+        let _ = client.write_all(payload.as_slice());
     };
     if matches.is_present("watch") {
-        let promise = thread::spawn(|| {
-            server::listen(receiver);
-        });
-        let _ = sender.send(watch_targets.clone());
+        let watch_targets = config::WatchTargets::new();
+        let (snd, rcv) = channel();
+        let promise = thread::spawn(move || server::listen(snd, watch_targets.clone()));
+        let _ = rcv.recv();
         let _ = promise.join();
     };
     // TODO: If it doesn't present any options, the tool sync all directories saved at .conf file
