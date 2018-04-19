@@ -4,10 +4,10 @@ use history::History;
 use libusb::Context;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
-use std::sync::mpsc::Receiver;
-use std::sync::{Arc, Mutex};
+use std::sync::mpsc::{channel, Sender};
 use std::thread;
-use std::fs::{remove_file, File};
+use std::process;
+use std::fs::remove_file;
 use std::io::Read;
 use std::time::Duration;
 use serde_json;
@@ -36,29 +36,40 @@ pub enum Command {
     Kill,
 }
 
-pub fn listen(dir_listener: Receiver<Arc<Mutex<WatchTargets>>>) {
-    println!("Process starting.");
+pub fn listen(done: Sender<()>) {
     remove_file(SOCKET_ADDR).unwrap_or(());
-    let cmd_listener = UnixListener::bind(SOCKET_ADDR).expect("Server process failed to start");
-    let context = Context::new().unwrap();
-    let throttle = Duration::from_millis(10);
-    // let mut watch_targets = dir_listener.recv().unwrap();
-    let mut current_devices = 0;
+    let (snd, rcv) = channel();
     println!("Start listening...");
 
-    for stream in cmd_listener.incoming() {
-        match stream {
-            Ok(mut stream) => {
-                let cmd = parse_command(&mut stream);
-                println!("{:?}", cmd);
-            }
-            Err(e) => unreachable!("{:?}", e),
-        };
-    }
+    let _ = thread::spawn(move || {
+        let listener = UnixListener::bind(SOCKET_ADDR).expect("Server process failed to start");
+        let _ = done.send(());
+        for stream in listener.incoming() {
+            match stream {
+                Ok(mut stream) => {
+                    let cmd = parse_command(&mut stream);
+                    println!("CMD is {:?}", cmd);
+                    match cmd {
+                        Command::Kill => {
+                            println!("KILL SERVER");
+                            process::exit(0);
+                        }
+                        Command::Add(targets) => {
+                            let _ = snd.send(targets);
+                        }
+                    }
+                }
+                Err(e) => unreachable!("{:?}", e),
+            };
+        }
+    });
 
-    /*
+    let mut watch_targets = rcv.recv().unwrap();
+    let context = Context::new().unwrap();
+    let throttle = Duration::from_millis(10);
+    let mut current_devices = 0;
     loop {
-        watch_targets = match dir_listener.recv_timeout(throttle) {
+        watch_targets = match rcv.recv_timeout(throttle) {
             Ok(x) => x,
             _ => watch_targets,
         };
@@ -76,7 +87,7 @@ pub fn listen(dir_listener: Receiver<Arc<Mutex<WatchTargets>>>) {
                 continue;
             }
             EventType::Add => {
-                let targets = watch_targets.lock().unwrap().get_available_directories();
+                let targets = watch_targets.get_available_directories();
                 println!("Syncing...{:?}", targets);
                 targets.iter().for_each(|x| {
                     let a = &x.0;
@@ -87,13 +98,11 @@ pub fn listen(dir_listener: Receiver<Arc<Mutex<WatchTargets>>>) {
             }
         }
     }
-    */
 }
 
 fn parse_command(stream: &mut UnixStream) -> Command {
     let mut buf = Vec::new();
     let _ = stream.read_to_end(&mut buf);
-    // let result = String::from_utf8(buf).unwrap();
     match serde_json::from_slice::<Command>(&buf) {
         Ok(cmd) => cmd,
         Err(e) => unreachable!("{:?}", e),

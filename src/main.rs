@@ -14,7 +14,6 @@ use clap::{App, Arg};
 use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::sync::mpsc::channel;
-use std::sync::{Arc, Mutex};
 use std::thread;
 use std::io::Write;
 
@@ -51,11 +50,15 @@ fn main() {
                 .long("watch")
                 .short("w"),
         )
+        .arg(
+            Arg::with_name("kill")
+                .help("Kill sync-dir daemon")
+                .long("kill")
+                .short("k"),
+        )
         .get_matches();
 
     // Initialize server
-    let (sender, receiver) = channel();
-    // let watch_targets = Arc::new(Mutex::new(config::WatchTargets::new()));
     let mut watch_targets = config::WatchTargets::new();
 
     if matches.is_present("synchronize") {
@@ -76,7 +79,6 @@ fn main() {
             Path::new(&dir_a).to_path_buf().canonicalize().unwrap(),
             Path::new(&dir_b).to_path_buf().canonicalize().unwrap(),
         ));
-        // let _ = sender.send(watch_targets.clone());
         let mut client = match UnixStream::connect(server::SOCKET_ADDR) {
             Ok(socket) => socket,
             Err(e) => unreachable!("UnixStream Error!\n{:?}", e),
@@ -85,12 +87,27 @@ fn main() {
         let _ = client.write_all(payload.as_slice());
         std::process::exit(0);
     };
+    if matches.is_present("kill") {
+        let mut client = match UnixStream::connect(server::SOCKET_ADDR) {
+            Ok(socket) => socket,
+            Err(e) => unreachable!("UnixStream Error!\n{:?}", e),
+        };
+        let payload = serde_json::to_vec(&server::Command::Kill).unwrap();
+        let _ = client.write_all(payload.as_slice());
+        std::process::exit(0);
+    };
     if matches.is_present("watch") {
+        let (snd, rcv) = channel();
         let promise = thread::spawn(|| {
-            server::listen(receiver);
+            server::listen(snd);
         });
-        // let _ = client.write_all(serde_json::to_string(&watch_targets).unwrap().as_bytes());
-        // let _ = sender.send(watch_targets.clone());
+        let _ = rcv.recv();
+        let mut client = match UnixStream::connect(server::SOCKET_ADDR) {
+            Ok(socket) => socket,
+            Err(e) => unreachable!("UnixStream Error!\n{:?}", e),
+        };
+        let payload = serde_json::to_vec(&server::Command::Add(watch_targets)).unwrap();
+        let _ = client.write_all(payload.as_slice());
         let _ = promise.join();
     };
     // TODO: If it doesn't present any options, the tool sync all directories saved at .conf file
