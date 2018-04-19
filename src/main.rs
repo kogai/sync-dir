@@ -23,7 +23,6 @@ mod history;
 mod server;
 
 fn main() {
-    // Setup CLI
     let matches = App::new(crate_name!())
         .version(crate_version!())
         .about(crate_authors!())
@@ -57,8 +56,6 @@ fn main() {
                 .short("k"),
         )
         .get_matches();
-
-    // Initialize server
 
     if matches.is_present("synchronize") {
         let directories = values_t!(matches.values_of("synchronize"), String).unwrap();
