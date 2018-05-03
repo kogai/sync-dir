@@ -63,7 +63,7 @@ impl History {
     let mut dist = to_root.clone();
     match from.strip_prefix(from_root) {
       Ok(path) => dist.push(path),
-      Err(e) => unreachable!("{:?}", e),
+      Err(e) => unreachable!("{:?} [{:?}] -> [{:?}]", e, from, from_root),
     };
     dist
   }
