@@ -2,10 +2,13 @@ NAME := sync-dir
 BIN := ./target/release/$(NAME)
 SRC := $(shell find ./src -type f -name '*.rs')
 OS := $(shell uname)
+VERSION := $(shell cat Cargo.toml | grep version | head -n1 | sed -e 's/version\ =\ \"\(.*\)\"/\1/')
 
 bin/$(OS)/$(NAME): Cargo.toml $(SRC)
 	# docker build -t $(NAME) .
 	# docker run --rm -v `pwd`/target:/app/target -t $(NAME)
+	cargo build --release
+	mkdir -p bin/$(OS)
 	cp target/release/$(NAME) bin/$(OS)/$(NAME)
 
 .PHONY: test
@@ -46,6 +49,12 @@ init: clean
 
 	touch -d "9 days ago" fixture/a/1.file
 	touch -d "1 days ago" fixture/b/1.file
+
+.PHONY: release
+release:
+	git tag -af "v${VERSION}" -m ""
+	git push
+	git push --follow-tags
 
 .PHONY: clean
 clean:

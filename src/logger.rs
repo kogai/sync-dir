@@ -2,11 +2,10 @@ use log::LevelFilter;
 use log4rs;
 use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
-use log4rs::encode::pattern::PatternEncoder;
 use log4rs::config::{Appender, Config, Logger, Root};
-use std::env::current_dir;
-use std::path::PathBuf;
+use log4rs::encode::pattern::PatternEncoder;
 use std::fs::read_to_string;
+use std::path::PathBuf;
 
 pub struct AppLogger;
 impl AppLogger {
@@ -17,6 +16,7 @@ impl AppLogger {
 
   #[cfg(debug_assertions)]
   fn log_directory() -> PathBuf {
+    use std::env::current_dir;
     current_dir().and_then(|p| Ok(p.join("log"))).unwrap()
   }
 
