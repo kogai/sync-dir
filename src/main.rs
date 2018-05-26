@@ -15,7 +15,7 @@ use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::sync::mpsc::channel;
 use std::thread;
-use std::io::Write;
+use std::io::{stdout, Write};
 
 mod config;
 mod difference;
@@ -49,7 +49,8 @@ fn main() {
         ])
         .get_matches();
 
-    match matches.subcommand() {
+    let mut watch_targets = config::WatchTargets::new();
+    let message = match matches.subcommand() {
         ("sync", Some(cmd)) => {
             let directories = values_t!(cmd.values_of("synchronize"), String).unwrap();
             let dir_a = directories.get(0).unwrap();
@@ -58,9 +59,9 @@ fn main() {
                 Path::new(&dir_a).to_path_buf().canonicalize().unwrap(),
                 Path::new(&dir_b).to_path_buf().canonicalize().unwrap(),
             );
+            None
         }
         ("add", Some(cmd)) => {
-            let mut watch_targets = config::WatchTargets::new();
             let directories = values_t!(cmd.values_of("additional"), String).unwrap();
             let dir_a = directories.get(0).unwrap();
             let dir_b = directories.get(1).unwrap();
@@ -74,13 +75,14 @@ fn main() {
             };
             let payload = serde_json::to_vec(&server::Command::Add(watch_targets)).unwrap();
             let _ = client.write_all(payload.as_slice());
+            None
         }
         ("watch", Some(_)) => {
-            let watch_targets = config::WatchTargets::new();
             let (snd, rcv) = channel();
             let promise = thread::spawn(move || server::listen(snd, watch_targets.clone()));
             let _ = rcv.recv();
             let _ = promise.join();
+            None
         }
         ("stop", Some(_)) => {
             let mut client = match UnixStream::connect(server::SOCKET_ADDR) {
@@ -89,14 +91,16 @@ fn main() {
             };
             let payload = serde_json::to_vec(&server::Command::Kill).unwrap();
             let _ = client.write_all(payload.as_slice());
+            None
         }
-        ("list", Some(_)) => {
-            unimplemented!();
-        }
+        ("list", Some(_)) => Some(watch_targets.list()),
         ("log", Some(_)) => {
             unimplemented!();
         }
         // TODO: If it doesn't present any options, the tool sync all directories saved at .conf file
         _ => unreachable!(),
+    };
+    if let Some(msg) = message {
+        let _ = stdout().write(format!("{}\n", msg).as_bytes());
     };
 }

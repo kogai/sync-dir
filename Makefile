@@ -4,9 +4,6 @@ SRC := $(shell find ./src -type f -name '*.rs')
 OS := $(shell uname)
 
 bin/$(OS)/$(NAME): Cargo.toml $(SRC)
-	ifeq (Linux, $(OS))
-		
-	endif
 	# docker build -t $(NAME) .
 	# docker run --rm -v `pwd`/target:/app/target -t $(NAME)
 	cp target/release/$(NAME) bin/$(OS)/$(NAME)
