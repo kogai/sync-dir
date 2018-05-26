@@ -39,7 +39,7 @@ pub enum Command {
 pub fn listen(done: Sender<()>, initial_watch_targets: WatchTargets) {
     remove_file(SOCKET_ADDR).unwrap_or(());
     let (snd, rcv) = channel();
-    println!("Start listening...");
+    warn!("Start listening...");
 
     let _ = thread::spawn(move || {
         let listener = UnixListener::bind(SOCKET_ADDR).expect("Server process failed to start");
@@ -55,7 +55,7 @@ pub fn listen(done: Sender<()>, initial_watch_targets: WatchTargets) {
                         }
                     };
                 }
-                Err(e) => unreachable!("{:?}", e),
+                Err(e) => exit_with_log!("{:?}", e),
             };
         }
     });
@@ -84,13 +84,13 @@ pub fn listen(done: Sender<()>, initial_watch_targets: WatchTargets) {
             }
             EventType::Add => {
                 let targets = watch_targets.get_available_directories();
-                println!("Syncing...{:?}", targets);
+                info!("Syncing...{:?}", targets);
                 targets.iter().for_each(|x| {
                     let a = &x.0;
                     let b = &x.1;
                     sync(a.clone(), b.clone());
                 });
-                println!("All directories synchronized.");
+                info!("All directories synchronized.");
             }
         }
     }
@@ -101,6 +101,6 @@ fn parse_command(stream: &mut UnixStream) -> Command {
     let _ = stream.read_to_end(&mut buf);
     match serde_json::from_slice::<Command>(&buf) {
         Ok(cmd) => cmd,
-        Err(e) => unreachable!("{:?}", e),
+        Err(e) => exit_with_log!("{:?}", e),
     }
 }

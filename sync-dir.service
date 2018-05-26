@@ -3,5 +3,5 @@ Description=Synchronounce directories service
 
 [Service]
 Type=simple
-ExecStart=/usr/lib/sync-dir/sync-dir --watch
-ExecStop=/usr/lib/sync-dir/sync-dir --terminate
+ExecStart=~/bin/sync-dir watch
+ExecStop=~/bin/sync-dir stop

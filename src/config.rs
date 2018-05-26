@@ -5,24 +5,23 @@ use std::fs::{read_dir, File};
 use std::io::{Read, Write};
 use std::path::PathBuf;
 
-#[derive(Clone)]
-pub struct WatchTargets2(PathBuf);
-
+// TODO: Configuration might need more information.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct WatchTargets(pub Set<(PathBuf, PathBuf)>);
 
 impl WatchTargets {
-  // TODO: Consider how to avoid warning by using modules either feature=debug or not.
-  #[cfg(not(feature = "debug"))]
+  #[cfg(not(debug_assertions))]
   fn configuration_path() -> PathBuf {
     std::env::home_dir()
       .and_then(|p| Some(p.join(".sync-dir.conf")))
       .unwrap()
   }
 
-  #[cfg(feature = "debug")]
+  #[cfg(debug_assertions)]
   fn configuration_path() -> PathBuf {
-    std::path::Path::new(".sync-dir.conf").to_owned()
+    std::env::current_dir()
+      .and_then(|p| Ok(p.join(".sync-dir.conf")))
+      .unwrap()
   }
 
   pub fn new() -> Self {
@@ -45,7 +44,7 @@ impl WatchTargets {
     match (File::create(&configuration_path), to_string_pretty(&self)) {
       (Ok(mut file), Ok(json)) => {
         match file.write_all(json.as_bytes()) {
-          Ok(_) => println!(
+          Ok(_) => info!(
             "Configuration file has been {} at {:?}",
             if self.0.is_empty() {
               "created"
@@ -54,10 +53,10 @@ impl WatchTargets {
             },
             configuration_path
           ),
-          Err(e) => unreachable!(e),
+          Err(e) => exit_with_log!("{:?}", e),
         };
       }
-      (e1, e2) => unreachable!(format!("{:?}\n{:?}", e1, e2)),
+      (e1, e2) => exit_with_log!("{:?}\n{:?}", e1, e2),
     };
   }
 
@@ -89,7 +88,20 @@ impl WatchTargets {
         let configuration_path = Self::configuration_path();
         self.write(configuration_path);
       }
-      (e1, e2) => unreachable!(format!("{:?}\n{:?}", e1, e2)),
+      (e1, e2) => exit_with_log!("{:?}\n{:?}", e1, e2),
     }
+  }
+
+  pub fn list(&self) -> String {
+    self
+      .0
+      .iter()
+      .map(|x| {
+        let a = format!("{:?}", x.0);
+        let b = format!("{:?}", x.1);
+        format!("({} <-> {})", a, b)
+      })
+      .collect::<Vec<_>>()
+      .join("\n")
   }
 }
