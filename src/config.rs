@@ -44,7 +44,7 @@ impl WatchTargets {
     match (File::create(&configuration_path), to_string_pretty(&self)) {
       (Ok(mut file), Ok(json)) => {
         match file.write_all(json.as_bytes()) {
-          Ok(_) => println!(
+          Ok(_) => info!(
             "Configuration file has been {} at {:?}",
             if self.0.is_empty() {
               "created"
@@ -53,10 +53,10 @@ impl WatchTargets {
             },
             configuration_path
           ),
-          Err(e) => unreachable!(e),
+          Err(e) => exit_with_log!("{:?}", e),
         };
       }
-      (e1, e2) => unreachable!(format!("{:?}\n{:?}", e1, e2)),
+      (e1, e2) => exit_with_log!("{:?}\n{:?}", e1, e2),
     };
   }
 
@@ -88,7 +88,7 @@ impl WatchTargets {
         let configuration_path = Self::configuration_path();
         self.write(configuration_path);
       }
-      (e1, e2) => unreachable!(format!("{:?}\n{:?}", e1, e2)),
+      (e1, e2) => exit_with_log!("{:?}\n{:?}", e1, e2),
     }
   }
 

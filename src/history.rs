@@ -19,10 +19,7 @@ fn i32_of_systemtime(x: SystemTime) -> i32 {
         .as_str();
       i32::from_str(result).unwrap()
     }
-    Err(e) => {
-      println!("{:?}", e);
-      unreachable!();
-    }
+    Err(e) => exit_with_log!("{:?}", e),
   }
 }
 
@@ -63,7 +60,7 @@ impl History {
     let mut dist = to_root.clone();
     match from.strip_prefix(from_root) {
       Ok(path) => dist.push(path),
-      Err(e) => unreachable!("{:?} [{:?}] -> [{:?}]", e, from, from_root),
+      Err(e) => exit_with_log!("{:?} [{:?}] -> [{:?}]", e, from, from_root),
     };
     dist
   }
@@ -97,12 +94,12 @@ impl History {
               })
             }
             Err(e) => {
-              println!("JSON of history file can't parse normaly.\n{:?}", e);
+              warn!("JSON of history file can't parse normaly.\n{:?}", e);
               History::generate_history(root.clone(), &Dawn::PreHistory)
             }
           },
           Err(e) => {
-            println!("History file can't read normaly.\n{:?}", e);
+            warn!("History file can't read normaly.\n{:?}", e);
             History::generate_history(root.clone(), &Dawn::PreHistory)
           }
         }
@@ -152,7 +149,7 @@ impl History {
           },
         )
         .unwrap(),
-      Err(e) => unreachable!(e),
+      Err(e) => exit_with_log!("{:?}", e),
     }
   }
 
@@ -164,12 +161,12 @@ impl History {
     ) {
       (Ok(mut file), Ok(json)) => {
         match file.write_all(json.as_bytes()) {
-          Ok(_) => println!("History file updated at {:?}", &history_path),
-          Err(e) => unreachable!(e),
+          Ok(_) => info!("History file updated at {:?}", &history_path),
+          Err(e) => exit_with_log!("{:?}", e),
         };
       }
-      (Err(e), _) => unreachable!(e),
-      (_, Err(e)) => unreachable!(e),
+      (Err(e), _) => exit_with_log!("{:?}", e),
+      (_, Err(e)) => exit_with_log!("{:?}", e),
     };
   }
 }

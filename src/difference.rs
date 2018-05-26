@@ -71,7 +71,7 @@ impl Differences {
                                 acc
                             }
                         }
-                        (_, _) => unreachable!(),
+                        (_, _) => exit_with_log!("Pair of file does not registered properly"),
                     },
                     None => acc.insert(Difference::new(
                         source_path,
