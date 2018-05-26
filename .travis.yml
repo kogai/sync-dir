@@ -1,0 +1,26 @@
+language: rust
+cache: cargo
+matrix:
+  include:
+  - os: linux
+    env: TARGET=x86_64-unknown-linux-gnu
+  - os: osx
+    env: TARGET=x86_64-apple-darwin
+env:
+  global:
+    - PROJECT_NAME=sync-dir
+
+before_deploy:
+  - make
+  - tar czf "$(pwd)/$PROJECT_NAME-$TRAVIS_TAG-$TARGET.tar.gz" bin/*
+
+deploy:
+  provider: releases
+  api_key:
+    secure: JVEtJffpV16ymfhKzEshQsAj9OG76oLfm1py3CDtL7+BIXbW20RdGH6kLR3NDqIKdhJGP3bn/7bz+h86a689vpGh/1nmwu5K+VsKa5kOqZNC9S/hj/mcI7dJjJ20Y4BVCFAEQ5E+H/Q50/RC6FTi056yA3LhLU4znqBhHGPlzQQRTKKTAle6VptzgX6LuSA0PCYMSOswzraW2MMPwh5WmXAcEaj/hoyaMkhxfb2l8hCjmaS7+386/WK7vB0tWxutqrlomAopeBvUXa5Qqtqsc6dKoOmFL2CCUTwnu0aI35GpgylUNbpjSrlk2YSJ6dZjZBEI0Br69cIsmrrvFKBz+ZS7R95liHYR5sOc1E69PAdV5340X9EzrfwUwmzeT3w+ajV5/3VSyvvFZTzHWTGfzMOVv57QO/4Z1AdyXX8pDOw22o3N4MVQkVp8Pq8QH1/ok0kUvWt1hPrn/drdywudpsGn6qTjHNbzwgv9krk/DZYVENP5u9OJMGUtbApHKKd/BE5xW/wjgBd7H2AXG8dYMt5D54bzMo6EVnSFf6977GXmOoDWP3MSt54HVNW55dbPfd9A7AoliWfPGv5GP7Z3dv0rpNl9X8LDHWZ/obu6AVt4W5lUtzFHSFH+IN5birJsrh0BdU1QBmfO5NB4NbiF3pbEW2ok0rxLbYsaL8HJ6yU=
+  skip_cleanup: true
+  file_glob: true
+  file:
+    - $PROJECT_NAME-$TRAVIS_TAG-$TARGET.*
+  # on:
+  #   tags: true
