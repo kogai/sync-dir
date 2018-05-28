@@ -8,19 +8,19 @@ mkdir -p "/tmp/$FILE"
 tar -xvf "/tmp/$FILE.tar.gz" -C "/tmp/$FILE"
 mkdir -p ~/bin
 mv "/tmp/$FILE/bin/$(uname)/sync-dir" ~/bin
-sudo cp ~/bin/sync-dir.service /etc/systemd/system/sync-dir.service
 
 if [ "$(uname)" = "Linux" ]; then
+  sudo cp ~/bin/sync-dir.service /etc/systemd/system/sync-dir.service
   cat <<EOF
 Enable sync-dir daemon
 
-$ systemctl service start sync-dir
+$ systemctl service enable sync-dir
 EOF
 else
   cat <<EOF
 Enable sync-dir daemon
 
-$ launchctl start sync-dir
+$ launchctl enable sync-dir
 EOF
 fi
 

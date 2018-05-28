@@ -2,8 +2,7 @@
 **/*.rs.bk
 fixture
 
-!bin/.keep
-bin
+bin/
 sandbox
 .sync-dir.conf
 log/
