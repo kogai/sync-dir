@@ -1,38 +1,32 @@
 language: rust
 cache: cargo
 rust:
-  - 1.26.0
+- 1.26.0
 addons:
   apt:
     update: true
-
 matrix:
   include:
   - os: linux
     env: TARGET=x86_64-unknown-linux-gnu
     before_install:
-      - sudo apt-get install -y libusb-1.0-0-dev
+    - sudo apt-get install -y libusb-1.0-0-dev
   - os: osx
     env: TARGET=x86_64-apple-darwin
 env:
   global:
-    - PROJECT_NAME=sync-dir
-
+  - PROJECT_NAME=sync-dir
 before_deploy:
-  - make
-  - tar czf "$(pwd)/$PROJECT_NAME-$TRAVIS_TAG-$TARGET.tar.gz" bin/*
-
-deploy:
-  provider: releases
-  api_key:
-    secure: "Y6KEkSJuqPESyn14M5kOpQO6JG1Lu2QSTMPQmyBeJB6TOYkq/BmblKoOTEgCAcB62UIDpOF2ErsZe/eCjTPjpPvszL+Sup/ql4odRxwua4KF5AFbeNQgdWhULsTkFd/AqWkcJMfSe0nze6CKsWPOdYx5u9C2NnfivL+qHNxr/KpLUB9bwDZHc8NkioO081C9N76JiPpCGwgHQEOmmtM7t0W2J/AyojNVOQpg9dINFZxlRze7bUA5B/oX+spTJtaWeIx0eCgr5ETsRhu6CRX6KIdShmvQvHZXMObGciCeHu0vif+wMMwbqTn5kcWaPzJvqsQMD2cV45wPy7YLWKX+VQf6YPSBOs1+y20KFEdYkTJm3A47CTWz7XCWqKW58ZhHL3vLbl9M/ukkNI7iNqbK+Il1lGNYX/y8bjj9MfBs1GxSZaLRL5oGOYnoocvcET7uU7CxD9wHQScOuDTTR19lMxS0H1WHlxt1WYLItLro16d/qYhcmYwC/f+8FgPcFoBh9r4f2lkGM44rYU9qvq66vRPHT/gc1/1jfpwBsTU3tYBcW/p28JWy9y6nLeT0lWr9NgmUd138xCet9fPZZZq26IpoeVSMYnR28r4CvcaTYKndlUCC1XXLWmvrQDMIHY0/VXIbsizcNEWvKTc0ZvDlt5CKav+GcOSknY+zLz1e96k="
-  skip_cleanup: true
-  file_glob: true
-  file:
-    - $PROJECT_NAME-$TRAVIS_TAG-$TARGET.*
-  on:
-    tags: true
+- make
+- tar czf "$(pwd)/$PROJECT_NAME-$TRAVIS_TAG-$TARGET.tar.gz" bin/*
 notifications:
   email:
     on_success: change
     on_failure: change
+deploy:
+  provider: releases
+  api_key:
+    secure: cgizwp+0uHTqE4uKzvAnBZ32oYTvIR7qCI36SbMDQ10sDzoPhkgCwMMK4ygiJpAkmGd7eqBSKijUvTRQT00JvjSc5/b4WZtQM/FNacqtUp0wtsm5BHGBvsz06AimVRf+//9IvyoaWtt3Fo3hJtGi0G3iiLoEryBGcTIaYHGq/Voq8plwZ5N9MWqC+O2LKpxDUw+b4dORS0ETGYZG56bEx/SpWe6UESCrkbNNASowGkSUr4079JfP/3+PoMsPSfmnfWt1MhR3LLh4Mn5edtAMY+7L06GxDzRKzJ7alqQpYW+38PFDJvi1TxUTYOLC7UUPPQJF0El5EV1BRDa3kGrncHfSm2pYEnSwVUshnDzzbBw1F7tg8upbkoXmuY6fuplrXQsb9HIzVoVJ1w+1W53aR5ekUZuAYRORjM7ButsDEGcPQQThWyEftVG/1p7O8C4l+YQQrpnVvM9wzjBV6q3H9b6wzrdn+fYLpm9MXckRWM5//cs98iDCNYLFmNZXPEJg85UNwgDRxHZ+MR+4qNnhZhcKYUG50Je3buvQgZ+d9nnvtFW/jWYJ7nSxGsq8o9QS+QmGBIV00/WzgXTjPHkNcRkkrUxN1D7nJHW/pfTInb75NZ8m8DeD1KAtsbxkk0dVIyiBjHmgWmY8W5x0kgRj4/zhVQgI5bGiEzqwXVnoj0w=
+  file: "$PROJECT_NAME-$TRAVIS_TAG-$TARGET.*"
+  on:
+    repo: kogai/sync-dir
