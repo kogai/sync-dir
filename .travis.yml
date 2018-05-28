@@ -15,10 +15,12 @@ matrix:
     env: TARGET=x86_64-apple-darwin
 env:
   global:
-  - PROJECT_NAME=sync-dir
+    - PROJECT_NAME=sync-dir
 before_deploy:
 - make
+- ls -lah "bin/$(uname)"
 - tar czf "$(pwd)/$PROJECT_NAME-$TRAVIS_TAG-$TARGET.tar.gz" bin/*
+- ls -lah
 notifications:
   email:
     on_success: change

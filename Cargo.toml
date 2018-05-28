@@ -1,6 +1,6 @@
 [package]
 name = "sync-dir"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Shinichi Kogai <kogai0121@gmail.com>"]
 
 [dependencies]
