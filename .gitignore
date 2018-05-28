@@ -6,3 +6,4 @@ bin/
 sandbox
 .sync-dir.conf
 log/
+*.tar.gz
