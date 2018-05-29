@@ -2,6 +2,7 @@ extern crate im;
 #[macro_use]
 extern crate log;
 extern crate log4rs;
+extern crate log4rs_syslog;
 extern crate regex;
 extern crate serde;
 #[macro_use]
@@ -21,12 +22,12 @@ mod history;
 mod server;
 
 use clap::{App, Arg, SubCommand};
+use logger::AppLogger;
+use std::io::{stdout, Write};
 use std::os::unix::net::UnixStream;
+use std::path::Path;
 use std::sync::mpsc::channel;
 use std::thread;
-use std::path::Path;
-use std::io::{stdout, Write};
-use logger::AppLogger;
 
 fn main() {
     AppLogger::init();
