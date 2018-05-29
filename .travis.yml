@@ -1,26 +1,26 @@
 language: rust
 cache: cargo
 rust:
-- 1.26.0
+  - 1.26.0
 addons:
   apt:
     update: true
 matrix:
   include:
-  - os: linux
-    env: TARGET=x86_64-unknown-linux-gnu
-    before_install:
-    - sudo apt-get install -y libusb-1.0-0-dev
-  - os: osx
-    env: TARGET=x86_64-apple-darwin
+    - os: linux
+      env: TARGET=x86_64-unknown-linux-gnu
+      before_install:
+      - sudo apt-get install -y libusb-1.0-0-dev
+    - os: osx
+      env: TARGET=x86_64-apple-darwin
 env:
   global:
     - PROJECT_NAME=sync-dir
 before_deploy:
-- make
-- ls -lah "bin/$(uname)"
-- tar czf "$(pwd)/$PROJECT_NAME-$TRAVIS_TAG-$TARGET.tar.gz" bin/*
-- ls -lah
+  - make
+  - ls -lah "bin/$(uname)"
+  - tar czf "$(pwd)/$PROJECT_NAME-$TRAVIS_TAG-$TARGET.tar.gz" bin/*
+  - ls -lah
 notifications:
   email:
     on_success: change
@@ -29,6 +29,7 @@ deploy:
   provider: releases
   api_key:
     secure: cgizwp+0uHTqE4uKzvAnBZ32oYTvIR7qCI36SbMDQ10sDzoPhkgCwMMK4ygiJpAkmGd7eqBSKijUvTRQT00JvjSc5/b4WZtQM/FNacqtUp0wtsm5BHGBvsz06AimVRf+//9IvyoaWtt3Fo3hJtGi0G3iiLoEryBGcTIaYHGq/Voq8plwZ5N9MWqC+O2LKpxDUw+b4dORS0ETGYZG56bEx/SpWe6UESCrkbNNASowGkSUr4079JfP/3+PoMsPSfmnfWt1MhR3LLh4Mn5edtAMY+7L06GxDzRKzJ7alqQpYW+38PFDJvi1TxUTYOLC7UUPPQJF0El5EV1BRDa3kGrncHfSm2pYEnSwVUshnDzzbBw1F7tg8upbkoXmuY6fuplrXQsb9HIzVoVJ1w+1W53aR5ekUZuAYRORjM7ButsDEGcPQQThWyEftVG/1p7O8C4l+YQQrpnVvM9wzjBV6q3H9b6wzrdn+fYLpm9MXckRWM5//cs98iDCNYLFmNZXPEJg85UNwgDRxHZ+MR+4qNnhZhcKYUG50Je3buvQgZ+d9nnvtFW/jWYJ7nSxGsq8o9QS+QmGBIV00/WzgXTjPHkNcRkkrUxN1D7nJHW/pfTInb75NZ8m8DeD1KAtsbxkk0dVIyiBjHmgWmY8W5x0kgRj4/zhVQgI5bGiEzqwXVnoj0w=
+  skip_cleanup: true
   file_glob: true
   file:
     - $PROJECT_NAME-$TRAVIS_TAG-$TARGET.*
