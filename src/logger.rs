@@ -3,7 +3,6 @@ use log4rs;
 use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Logger, Root};
-use log4rs::encode::pattern::PatternEncoder;
 use std::fs::read_to_string;
 use std::path::PathBuf;
 
@@ -20,31 +19,55 @@ impl AppLogger {
     current_dir().and_then(|p| Ok(p.join("log"))).unwrap()
   }
 
+  #[cfg(not(debug_assertions))]
+  fn syslog_appender() -> Box<log4rs::append::Append> {
+    use log;
+    use log4rs::encode::pattern::PatternEncoder;
+    use log4rs_syslog;
+    let appender = log4rs_syslog::SyslogAppender::builder()
+      .encoder(Box::new(PatternEncoder::new("{d} - {m}{n}")))
+      .openlog(
+        "sync-dir.log",
+        log4rs_syslog::LogOption::LOG_PID,
+        log4rs_syslog::Facility::Daemon,
+      )
+      .build();
+    Box::new(appender)
+  }
+
+  #[cfg(debug_assertions)]
+  fn syslog_appender() -> Box<log4rs::append::Append> {
+    use std::env::current_dir;
+
+    let appender = FileAppender::builder()
+      .build(
+        current_dir()
+          .and_then(|p| Ok(p.join("log").join("sync-dir.log")))
+          .unwrap(),
+      )
+      .unwrap();
+    Box::new(appender)
+  }
+
   fn get_log_file() -> PathBuf {
     AppLogger::log_directory().join("sync-dir.log")
   }
 
   pub fn init() {
-    let log_file = AppLogger::get_log_file();
     let stdout = ConsoleAppender::builder().build();
-
-    let fs_log = FileAppender::builder()
-      .encoder(Box::new(PatternEncoder::new("{d} - {m}{n}")))
-      .build(log_file)
-      .unwrap();
-
+    let syslog = AppLogger::syslog_appender();
     let config = Config::builder()
       .appender(Appender::builder().build("stdout", Box::new(stdout)))
-      .appender(Appender::builder().build("fs", Box::new(fs_log)))
+      .appender(Appender::builder().build("syslog", syslog))
       .logger(
         Logger::builder()
-          .appender("fs")
+          .appender("syslog")
           .additive(false)
-          .build("app::fs", LevelFilter::Warn),
+          .build("app::syslog", LevelFilter::Warn),
       )
       .build(
         Root::builder()
-          .appenders(vec!["stdout", "fs"])
+          .appenders(vec!["stdout", "syslog"])
           .build(LevelFilter::Info),
       )
       .unwrap();
