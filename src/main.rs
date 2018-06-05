@@ -41,6 +41,7 @@ fn main() {
                 .about("Sync pair of directories")
                 .arg(
                     Arg::with_name("DIRECTORIES")
+                        .index(1)
                         .takes_value(true)
                         .multiple(true),
                 ),
@@ -48,6 +49,7 @@ fn main() {
                 .about("Add pair of directories targets to be monitored")
                 .arg(
                     Arg::with_name("DIRECTORIES")
+                        .index(1)
                         .takes_value(true)
                         .multiple(true),
                 ),
@@ -62,7 +64,7 @@ fn main() {
     let mut watch_targets = config::WatchTargets::new();
     let message = match matches.subcommand() {
         ("sync", Some(cmd)) => {
-            let directories = values_t!(cmd.values_of("synchronize"), String).unwrap();
+            let directories = values_t!(cmd.values_of("DIRECTORIES"), String).unwrap_or(vec![]);
             let dir_a = directories.get(0).unwrap();
             let dir_b = directories.get(1).unwrap();
             server::sync(
@@ -72,7 +74,7 @@ fn main() {
             None
         }
         ("add", Some(cmd)) => {
-            let directories = values_t!(cmd.values_of("additional"), String).unwrap();
+            let directories = values_t!(cmd.values_of("DIRECTORIES"), String).unwrap();
             let dir_a = directories.get(0).unwrap();
             let dir_b = directories.get(1).unwrap();
             watch_targets.add((
